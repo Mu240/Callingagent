@@ -60,7 +60,7 @@ A virtual environment isolates the project’s dependencies to avoid conflicts w
    source venv/bin/activate
    ```
 
-   Once activated, your terminal prompt should change to indicate the virtual environment is active (e.g 永 e.g., `(venv) $`.
+   Once activated, your terminal prompt should change to indicate the virtual environment is active (e.g `(venv) $`.
 
 ### Step 3: Install Dependencies
 
@@ -191,10 +191,3 @@ The application relies on the Web Speech API for speech recognition, which is su
 - **Server Not Starting**: Check if the specified `PORT` is free and `HOST` is correctly configured.
 - **Virtual Environment Issues**: Ensure the virtual environment is activated before running `pip install` or `python app.py`.
 
-## License
-
-This project is unlicensed. Use it at your own risk.
-
-## Contact
-
-For issues or contributions, please contact the repository maintainer or open an issue on the repository (if applicable).
