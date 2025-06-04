@@ -29,7 +29,6 @@ openai.api_key = OPENAI_API_KEY
 # Store conversation states for each session
 conversation_states = {}
 
-
 def get_conversation_state(session_id):
     if session_id not in conversation_states:
         conversation_states[session_id] = {
@@ -40,7 +39,6 @@ def get_conversation_state(session_id):
         }
     return conversation_states[session_id]
 
-
 def reset_conversation_state(session_id):
     conversation_states[session_id] = {
         "step": "greeting",
@@ -49,21 +47,17 @@ def reset_conversation_state(session_id):
         "contact_details": {"name": None, "email": None, "phone": None},
     }
 
-
 # Tax debt prompt
 TAX_DEBT_PROMPT = """
 Do you have a federal tax debt over five thousand dollars or any missed filings?
 Please respond with 'yes,' 'no,' or something else.
 """
 
-
 def ask_tax_debt_question():
     return TAX_DEBT_PROMPT
 
-
 def repeat_tax_debt_question():
     return "I am sorry, I didn't understand. Let me repeat: Do you have a federal tax debt over five thousand dollars or any missed tax filings? Please respond with 'yes,' 'no,' or something else."
-
 
 def text_to_speech(text):
     url = "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM"
@@ -89,7 +83,6 @@ def text_to_speech(text):
         print(f"Error in text_to_speech: {e}")
         return None
 
-
 def query_openai(user_input, conversation_state):
     prompt = f"""
 You are an AI assistant handling inquiries about federal tax debt. Respond naturally and politely to the user's query, staying within the context of tax debt or missed filings. If the query is unrelated, gently steer the conversation back to the tax debt question. Do not invent specific details about tax laws or financial advice unless explicitly provided. If the user asks for a callback or transfer, guide them to provide contact details.
@@ -110,16 +103,18 @@ Provide the response text only.
     )
     return response.choices[0].message.content.strip()
 
-
 def process_user_input(user_input, session_id):
     conversation_state = get_conversation_state(session_id)
-
+    
     # List of common greetings
     greetings = ['hi', 'hello', 'hey', 'greetings', 'good morning', 'good afternoon', 'good evening']
-
+    
+    # List of common goodbye phrases, including misspellings
+    goodbyes = ['good bye', 'bye', 'thanks a lot', 'thank you', 'see you', 'thanks', 'thnask', 'thnx', 'thank', 'by']
+    
     # Check for closing statements
-    if any(phrase in user_input.lower() for phrase in ['good bye', 'bye', 'thanks a lot', 'thank you', 'see you']):
-        response_text = "Thank you for your time! Goodbye!"
+    if any(phrase in user_input.lower() for phrase in goodbyes):
+        response_text = "Thanks a lot! If you need any help, feel free to contact."
         reset_conversation_state(session_id)
     # Check for greetings
     elif any(greeting in user_input.lower() for greeting in greetings):
@@ -190,7 +185,6 @@ def process_user_input(user_input, session_id):
 
     return response_text
 
-
 # Optional endpoint to return raw MP3 file
 @app.route('/process_text_mp3', methods=['POST'])
 def process_text_mp3():
@@ -227,7 +221,6 @@ def process_text_mp3():
     except Exception as e:
         print(f"Error processing text: {e}")
         return jsonify({'error': str(e)}), 500
-
 
 if __name__ == '__main__':
     print(f"Starting Tax Debt Assistant API...")
