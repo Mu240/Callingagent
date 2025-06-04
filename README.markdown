@@ -112,7 +112,7 @@ OPENAI_API_KEY=your_openai_api_key
 ELEVENLABS_API_KEY=your_elevenlabs_api_key
 HOST=0.0.0.0
 PORT=5000
-VOSK_MODEL_PATH=D:/callagent/vosk-model-en-us-0.42-gigaspeech
+VOSK_MODEL_PATH=replace_it_with_yours
 ```
 
 Replace `your_openai_api_key` and `your_elevenlabs_api_key` with your actual API keys. Adjust `HOST`, `PORT`, and `VOSK_MODEL_PATH` as needed.
