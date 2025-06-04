@@ -1,25 +1,28 @@
-# Tax Debt AI Assistant
+# Tax Debt AI Assistant with Vosk and WebSocket
 
 ## Overview
 
-This is a Flask-based web application that provides an interactive AI assistant for handling inquiries about federal tax debt. The application uses speech recognition to accept user input, processes it using OpenAI's GPT-4 model, and responds with text-to-speech output via the ElevenLabs API. It guides users through a conversation flow to determine if they have a federal tax debt over $5,000 or missed filings, collects contact details if needed, and supports a Do Not Call list option.
+This is a Flask-based web application integrated with SocketIO, designed to provide an interactive AI assistant for handling federal tax debt inquiries. It uses the Vosk speech recognition model for real-time speech-to-text, processes user input with OpenAI's GPT-4, and responds via text-to-speech using the ElevenLabs API. The application manages a conversation flow to assess tax debt over $5,000 or missed filings, collects contact details for follow-ups, and supports WebSocket for real-time audio and response handling.
 
 ## Features
 
-- **Speech Recognition**: Utilizes browser-based Web Speech API for real-time speech-to-text input.
-- **Text-to-Speech**: Converts AI responses to audio using the ElevenLabs API.
-- **Conversation Flow**: Manages a stateful conversation to handle user responses, including "yes," "no," or unclear inputs.
-- **Contact Collection**: Collects user name, email, and phone number for follow-up calls when requested.
-- **Environment Variables**: Securely stores API keys, host, and port in a `.env` file.
-- **CORS Support**: Allows cross-origin requests for web compatibility.
+- **Speech Recognition**: Uses the Vosk model for offline, server-side speech-to-text from browser-captured audio (WebM format).
+- **Text-to-Speech**: Converts AI responses to audio via the ElevenLabs API.
+- **WebSocket Support**: Real-time audio data transmission and response delivery using Flask-SocketIO.
+- **Conversation Flow**: Guides users through states (greeting, tax debt, contact collection) based on responses like "yes," "no," or other inputs.
+- **Contact Collection**: Gathers name, email, and phone for follow-up when tax debt is confirmed.
+- **Environment Variables**: Securely stores API keys, host, port, and Vosk model path in a `.env` file.
+- **CORS Support**: Enables cross-origin requests for web compatibility.
 
 ## Prerequisites
 
 - Python 3.8+
-- A modern web browser (e.g., Google Chrome) with Web Speech API support
-- Internet access for API calls to OpenAI and ElevenLabs
-- A valid `.env` file with API keys and server configuration
-- A `requirements.txt` file with necessary dependencies
+- A modern web browser (e.g., Google Chrome) with microphone access
+- Internet access for OpenAI and ElevenLabs API calls
+- FFmpeg installed and available in system PATH for audio conversion (WebM to PCM WAV)
+- A valid `.env` file with API keys and configuration
+- A `requirements.txt` file with dependencies
+- Vosk model downloaded and extracted (e.g., `vosk-model-en-us-0.42-gigaspeech`)
 
 ## Setup and Installation
 
@@ -34,78 +37,99 @@ cd <repository-directory>
 
 ### Step 2: Set Up a Python Virtual Environment
 
-A virtual environment isolates the project’s dependencies to avoid conflicts with other Python projects.
+Isolate dependencies to avoid conflicts:
 
-1. **Create a Virtual Environment**: On Windows:
+1. **Create a Virtual Environment**:
+   - On Windows:
+     ```bash
+     python -m venv venv
+     ```
+   - On macOS/Linux:
+     ```bash
+     python3 -m venv venv
+     ```
 
-   ```bash
-   python -m venv venv
-   ```
-
-   On macOS/Linux:
-
-   ```bash
-   python3 -m venv venv
-   ```
-
-2. **Activate the Virtual Environment**: On Windows:
-
-   ```bash
-   venv\Scripts\activate
-   ```
-
-   On macOS/Linux:
-
-   ```bash
-   source venv/bin/activate
-   ```
-
-   Once activated, your terminal prompt should change to indicate the virtual environment is active (e.g `(venv) $`.
+2. **Activate the Virtual Environment**:
+   - On Windows:
+     ```bash
+     venv\Scripts\activate
+     ```
+   - On macOS/Linux:
+     ```bash
+     source venv/bin/activate
+     ```
+   Your terminal prompt should reflect the active environment (e.g., `(venv) $`).
 
 ### Step 3: Install Dependencies
 
-With the virtual environment activated, install the required packages from `requirements.txt`:
+With the virtual environment activated, install required packages:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-The `requirements.txt` file includes:
+The `requirements.txt` file should include:
 
 ```
 flask
+flask-socketio
 python-dotenv
 openai
 requests
+vosk
 flask-cors
 ```
 
-### Step 4: Verify the `.env` File
+### Step 4: Install FFmpeg
 
-Ensure the `.env` file exists in the project root and contains the following:
+FFmpeg is required to convert WebM audio to PCM WAV for Vosk:
+- **Windows**: Download from [FFmpeg website](https://ffmpeg.org/download.html), extract, and add the `bin` folder to your system PATH.
+- **macOS**: Install via Homebrew:
+  ```bash
+  brew install ffmpeg
+  ```
+- **Linux**: Install via package manager, e.g.:
+  ```bash
+  sudo apt-get install ffmpeg
+  ```
+Verify installation:
+```bash
+ffmpeg -version
+```
+
+### Step 5: Download Vosk Model
+
+1. Download a Vosk model (e.g., `vosk-model-en-us-0.42-gigaspeech`) from [Vosk Models](https://alphacephei.com/vosk/models).
+2. Extract the model to a directory (e.g., `D:/callagent/vosk-model-en-us-0.42-gigaspeech`).
+3. Update the `VOSK_MODEL_PATH` in the `.env` file to match this location.
+
+### Step 6: Verify the `.env` File
+
+Ensure the `.env` file exists in the project root with:
 
 ```
 OPENAI_API_KEY=your_openai_api_key
 ELEVENLABS_API_KEY=your_elevenlabs_api_key
 HOST=0.0.0.0
 PORT=5000
+VOSK_MODEL_PATH=D:/callagent/vosk-model-en-us-0.42-gigaspeech
 ```
 
-Replace `your_openai_api_key` and `your_elevenlabs_api_key` with your actual API keys from OpenAI and ElevenLabs. The `HOST` and `PORT` values can be customized (default values are `0.0.0.0` and `5000`).
+Replace `your_openai_api_key` and `your_elevenlabs_api_key` with your actual API keys. Adjust `HOST`, `PORT`, and `VOSK_MODEL_PATH` as needed.
 
-### Step 5: Run the Program
+### Step 7: Run the Program
 
-Start the Flask application:
+Start the Flask application with SocketIO:
 
 ```bash
 python app.py
 ```
 
-The application will run on the specified `HOST` and `PORT` (e.g., `http://0.0.0.0:5000` or `http://localhost:5000` if accessed locally).
+The app runs on the specified `HOST` and `PORT` (e.g., `http://localhost:5000`).
 
-### Step 6: Deactivate the Virtual Environment (Optional)
+### Step 8: Deactivate the Virtual Environment (Optional)
 
-When done, deactivate the virtual environment:
+When finished:
 
 ```bash
 deactivate
@@ -114,43 +138,44 @@ deactivate
 ## How the Program Works
 
 1. **Web Interface**:
-
-   - Upon accessing `http://<HOST>:<PORT>` (e.g., `http://localhost:5000`), a simple web interface loads with "Start Talking" and "Stop Talking" buttons.
-   - The interface uses the Web Speech API to capture user speech and display the assistant’s responses.
+   - Access `http://<HOST>:<PORT>` (e.g., `http://localhost:5000`) to load a web interface with "Start Talking" and "Stop Talking" buttons.
+   - The interface captures audio via the browser, sends it over WebSocket, and plays AI responses.
 
 2. **Conversation Flow**:
+   - Starts with: "Do you have a federal tax debt over five thousand dollars or any missed filings? Please respond with 'yes,' 'no,' or something else."
+   - Handles responses:
+     - **"Yes"**: Requests contact details (name, email, phone) for team follow-up.
+     - **"No"**: Confirms with "Are you sure you don’t have a tax debt?" and respects "do not call" requests.
+     - **Unclear Response**: Repeats the question (up to twice) before ending with "Thank you for your time! Goodbye!"
+     - **Closing Phrases** (e.g., "goodbye," "thank you"): Ends and resets the conversation.
+   - Uses OpenAI’s GPT-4 for general responses outside the fixed flow.
 
-   - The assistant starts by asking, "Do you have a federal tax debt over five thousand dollars or any missed filings?" via text-to-speech.
-   - User responses are captured via speech recognition and sent to the `/process` endpoint.
-   - Responses are processed as follows:
-     - **"Yes"**: Prompts for contact details (name, email, phone) for a follow-up call.
-     - **"No"**: Confirms if the user is sure, potentially adding them to a Do Not Call list if requested.
-     - **Unclear Response**: Repeats the question up to two times before ending the conversation.
-     - **Closing Phrases** (e.g., "goodbye," "thank you"): Ends the conversation and resets the state.
-   - The assistant uses OpenAI’s GPT-4 for general responses and ElevenLabs for text-to-speech conversion.
+3. **Audio Processing**:
+   - Browser records audio as WebM (Opus codec) and sends it via WebSocket.
+   - Server converts WebM to PCM WAV using FFmpeg for Vosk compatibility.
+   - Vosk transcribes audio to text, sending partial and final results to the client.
+   - Ascertains transcription accuracy and emits a final result when ready.
+   - Responses are converted to audio via ElevenLabs and played back in the browser.
 
-3. **State Management**:
+4. **State Management**:
+   - Tracks conversation state (e.g., `greeting`, `tax_debt`, `collect_name`) and contact details per session ID.
+   - Resets state after conversation ends (e.g., on "goodbye").
 
-   - The application maintains a conversation state (`greeting`, `tax_debt`, `confirm_no`, etc.) to track the user’s progress.
-   - Contact details are stored temporarily in memory (reset after the conversation ends).
-
-4. **Audio Output**:
-
-   - Responses are converted to audio using the ElevenLabs API and played back via the browser’s audio player.
+5. **WebSocket**:
+   - Handles real-time audio data (`audio_data` event) and transcription results (`transcription` event).
+   - Sends AI responses and audio (`response` event) back to the client.
 
 ## Usage
 
-1. **Access the Application**: Open a web browser (e.g., Google Chrome) and navigate to `http://<HOST>:<PORT>` (e.g., `http://localhost:5000`).
+1. **Access the Application**: Open a browser (e.g., Chrome) and go to `http://<HOST>:<PORT>` (e.g., `http://localhost:5000`).
 
 2. **Interact with the Assistant**:
-
-   - Click "Start Talking" to initiate the conversation. Grant microphone access when prompted.
-   - Speak your response to the assistant’s question (e.g., "yes," "no," or other phrases).
-   - The assistant responds with audio and text, guiding you through the conversation based on your input.
+   - Click "Start Talking" to begin, granting microphone access.
+   - Speak your response (e.g., "yes," "no," or other).
+   - The assistant transcribes your speech, processes it, and responds with text and audio.
    - Click "Stop Talking" to end the session.
 
 3. **Example Interaction**:
-
    - Assistant: "Do you have a federal tax debt over five thousand dollars or any missed filings?"
    - User: "Yes" → Assistant: "Thank you for letting me know. I’ll transfer you to our team. Could you please provide your name?"
    - User: "No" → Assistant: "Not a problem, but before I let you go, are you sure you don’t have a tax debt?"
@@ -158,36 +183,38 @@ deactivate
 
 ## Environment Variables
 
-The application uses a `.env` file to manage sensitive and configurable settings:
+The `.env` file configures:
 
-- `OPENAI_API_KEY`: Your OpenAI API key for GPT-4 access.
-- `ELEVENLABS_API_KEY`: Your ElevenLabs API key for text-to-speech.
-- `HOST`: The host address (e.g., `0.0.0.0` for external access).
-- `PORT`: The port number (e.g., `5000`).
+- `OPENAI_API_KEY`: OpenAI API key for GPT-4.
+- `ELEVENLABS_API_KEY`: ElevenLabs API key for text-to-speech.
+- `HOST`: Server host (e.g., `0.0.0.0`).
+- `PORT`: Server port (e.g., `5000`).
+- `VOSK_MODEL_PATH`: Path to the Vosk model directory.
 
-**Note**: Do not commit the `.env` file to version control. Ensure it’s listed in `.gitignore` to keep sensitive information secure.
+**Note**: Keep the `.env` file secure and exclude it from version control (e.g., via `.gitignore`).
 
 ## Browser Compatibility
 
-The application relies on the Web Speech API for speech recognition, which is supported by modern browsers like Google Chrome. If the browser does not support `webkitSpeechRecognition`, an alert will notify the user.
+- Requires a modern browser (e.g., Chrome) with `navigator.mediaDevices.getUserMedia` support for microphone access.
+- Audio playback uses HTML5 `<audio>` for MP3 from ElevenLabs.
 
 ## Security Notes
 
-- **API Keys**: Store API keys in the `.env` file and avoid hardcoding them in the source code.
-- **HTTPS**: For production, deploy the application behind an HTTPS server to secure audio and user data transmission.
-- **Do Not Call List**: The application respects "do not call" requests by prompting for confirmation.
+- **API Keys**: Store in `.env`, never in code.
+- **HTTPS**: Use HTTPS in production for secure data transmission.
+- **Session Data**: Contact details and states are stored in memory, reset after each session.
 
 ## Limitations
 
-- The Web Speech API may not work in all browsers (e.g., older versions or non-Chromium browsers).
-- The ElevenLabs API requires a valid API key and internet access for text-to-speech functionality.
-- The application assumes a stable internet connection for API calls to OpenAI and ElevenLabs.
-- Contact details are stored in memory and reset after each conversation (no persistent storage).
+- Vosk requires a downloaded model and FFmpeg for audio conversion.
+- Internet connection needed for OpenAI and ElevenLabs APIs.
+- Audio quality and transcription accuracy depend on microphone and noise levels.
+- No persistent storage for contact details.
 
 ## Troubleshooting
 
-- **API Errors**: Verify that `OPENAI_API_KEY` and `ELEVENLABS_API_KEY` are valid in the `.env` file.
-- **Speech Recognition Fails**: Ensure browser compatibility and microphone permissions.
-- **Server Not Starting**: Check if the specified `PORT` is free and `HOST` is correctly configured.
-- **Virtual Environment Issues**: Ensure the virtual environment is activated before running `pip install` or `python app.py`.
-
+- **API Errors**: Check `OPENAI_API_KEY` and `ELEVENLABS_API_KEY` in `.env`.
+- **Vosk Fails**: Verify `VOSK_MODEL_PATH` and model presence.
+- **Audio Issues**: Ensure FFmpeg is in PATH, check microphone permissions.
+- **Server Issues**: Confirm `PORT` is free and `HOST` is correct.
+- **WebSocket**: Ensure browser supports SocketIO and no firewall blocks the connection.
