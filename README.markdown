@@ -1,26 +1,23 @@
 # Tax Debt AI Assistant API
 
 ## Overview
-
-A Flask-based web application providing an AI assistant for federal tax debt inquiries, processing text input via a REST API, leveraging OpenAI's GPT-4 for responses, and converting them to MP3 audio with ElevenLabs. It manages a conversation flow, collects contact details, logs interactions to MySQL, and serves audio responses.
+A Flask-based REST API designed to assist with federal tax debt inquiries. It processes user text input, generates responses using OpenAI's GPT-4, converts them to MP3 audio via ElevenLabs, and manages a structured conversation flow. The API logs interactions to a MySQL database and supports CORS for cross-origin requests.
 
 ## Features
-
-- **Text Input Processing**: Handles user text via POST to `/process_text_mp3`.
+- **Text Input Processing**: Accepts user text via POST to `/process_text_mp3`.
 - **Text-to-Speech**: Converts responses to MP3 using ElevenLabs API.
-- **Conversation Flow**: Guides users through greeting, tax debt, and contact collection stages.
+- **Conversation Flow**: Manages stages: greeting, tax debt inquiry, and contact collection.
 - **Contact Collection**: Captures name, email, and phone for follow-up.
-- **MySQL Logging**: Stores request and response logs in a database.
-- **Environment Variables**: Secures API keys, host, port, and MySQL config in `.env`.
-- **CORS Support**: Enables cross-origin requests.
+- **MySQL Logging**: Stores request/response data in a database.
+- **Environment Variables**: Secures sensitive configurations in `.env`.
+- **CORS Support**: Enables cross-origin API access.
 
 ## Prerequisites
-
 - Python 3.8+
-- Internet access for OpenAI and ElevenLabs APIs
 - MySQL server
-- A `.env` file with API keys and configuration
-- A `requirements.txt` file with dependencies
+- Internet access for OpenAI and ElevenLabs APIs
+- `.env` file with required configurations
+- `requirements.txt` with dependencies
 
 ## Setup and Installation
 
@@ -30,7 +27,7 @@ git clone <repository-url>
 cd <repository-directory>
 ```
 
-### Step 2: Set Up a Python Virtual Environment
+### Step 2: Set Up Virtual Environment
 1. Create:
    - Windows: `python -m venv venv`
    - macOS/Linux: `python3 -m venv venv`
@@ -52,8 +49,8 @@ requests
 mysql-connector-python
 ```
 
-### Step 4: Verify the `.env` File
-Ensure `.env` in the project root contains:
+### Step 4: Configure `.env`
+Create a `.env` file in the project root:
 ```
 OPENAI_API_KEY=your_openai_api_key
 ELEVENLABS_API_KEY=your_elevenlabs_api_key
@@ -68,54 +65,48 @@ MYSQL_PORT=
 ```
 Replace placeholders with actual values.
 
-### Step 5: Run the Program
+### Step 5: Run the Application
 ```bash
 python app.py
 ```
-Runs on `http://<HOST>:<PORT>` (e.g., `http://localhost:5000`).
+Access at `http://<HOST>:<PORT>` (e.g., `http://localhost:5000`).
 
-### Step 6: Deactivate Virtual Environment (Optional)
+### Step 6: Deactivate Virtual Environment
 ```bash
 deactivate
 ```
 
-## How the Program Works
-
-1. **API Endpoint**:
-   - `/process_text_mp3` (POST): Processes text input, returns text and audio URL.
+## How It Works
+1. **API Endpoints**:
+   - `/process_text_mp3` (POST): Processes text input, returns JSON with text response and MP3 audio URL.
    - `/static/audio/<filename>`: Serves generated MP3 files.
+   - `/get_logs` (GET): Retrieves interaction logs with formatted timestamps.
 
 2. **Conversation Flow**:
-   - **Greeting**: Asks about tax debt over $5,000 or missed filings.
-   - **Responses**:
-     - "Yes": Collects name, email, phone for team follow-up.
+   - **Greeting**: Responds to greetings (e.g., "hi") and asks about tax debt over $5,000 or missed filings.
+   - **Tax Debt Question**:
+     - "Yes": Initiates contact collection (name, email, phone).
      - "No": Confirms with "Are you sure you don’t have a tax debt?"
      - Other: Repeats question (up to twice), then ends.
      - Goodbyes (e.g., "bye"): Ends with "Thank you for your time! Goodbye!"
-   - Uses GPT-4 for unhandled queries.
+   - Uses GPT-4 for unhandled inputs, staying within tax debt context.
 
 3. **Audio Processing**:
-   - Converts responses to MP3 via ElevenLabs, stores in `static/audio/`.
-   - Returns a URL to the audio file.
+   - Generates MP3 files using ElevenLabs, stored in `static/audio/`.
+   - Returns audio URLs (e.g., `http://localhost:5000/static/audio/<filename>.mp3`).
 
 4. **State Management**:
-   - Tracks state (greeting, tax_debt, collect_name, etc.) per session UUID.
-   - Resets after goodbye or completion.
+   - Tracks session state (greeting, tax_debt, collect_name, etc.) using a UUID.
+   - Resets state after goodbye or contact collection completion.
 
 5. **Logging**:
    - Logs requests, responses, and errors to `logs/app.log` and MySQL `logs` table.
+   - Includes timestamps formatted as `HH:MM DD/MM/YYYY`.
 
 ## Usage
-
-1. **Access the API**:
+1. **API Request**:
    - POST to `http://<HOST>:<PORT>/process_text_mp3`.
-
-2. **Input Format**:
    - JSON payload:
-     - `text`: User input (e.g., "yes").
-     - `uuid`: Session identifier.
-     - `number`: User phone number.
-   - Example:
      ```json
      {
        "text": "yes",
@@ -124,59 +115,53 @@ deactivate
      }
      ```
 
-3. **Output Response**:
-   - Success: JSON with `response` (text) and `audio_url` (MP3 URL).
-   - Error: JSON with `error` field, status code (e.g., 400, 500).
-   - Example Success:
+2. **Response Format**:
+   - Success:
      ```json
      {
        "response": "Thank you for letting me know. I'll transfer you to our team. Could you please provide your name?",
        "audio_url": "http://localhost:5000/static/audio/abc123.mp3"
      }
      ```
-   - Example Error:
+   - Error:
      ```json
      {
-       "response": "I am sorry, I didn't understand. Let me repeat: Do you have a federal tax debt over five thousand dollars or any missed tax filings? Please respond with 'yes,' 'no,' or something else.",
-       "error": "Failed to generate audio response"
+       "error": "Missing text, uuid, or number in the request"
      }
      ```
 
-4. **Example Interaction**:
+3. **Example Interaction**:
    - **Input**: `{"text": "hello", "uuid": "user123", "number": "123-456-7890"}`
-   - **Output**: JSON with text and audio URL for tax debt question.
+     - **Output**: Asks about tax debt.
    - **Input**: `{"text": "yes", "uuid": "user123", "number": "123-456-7890"}`
-   - **Output**: JSON with text and audio URL requesting name.
-   - **Input**: `{"text": "goodbye", "uuid": "user123", "number": "123-456-7890"}`
-   - **Output**: JSON with goodbye message and audio URL.
+     - **Output**: Requests name.
+   - **Input**: `{"text": "John Doe", "uuid": "user123", "number": "123-456-7890"}`
+     - **Output**: Requests email.
+   - **Input**: `{"text": "bye", "uuid": "user123", "number": "123-456-7890"}`
+     - **Output**: Goodbye message.
 
 ## Environment Variables
+- `OPENAI_API_KEY`: For GPT-4 access.
+- `ELEVENLABS_API_KEY`: For text-to-speech.
+- `HOST`, `PORT`, `BASE_URL`: Server configuration.
+- `MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`, `MYSQL_PORT`: MySQL settings.
 
-- `OPENAI_API_KEY`: OpenAI API key for GPT-4.
-- `ELEVENLABS_API_KEY`: ElevenLabs API key for text-to-speech.
-- `HOST`: Server host (e.g., `0.0.0.0`).
-- `PORT`: Server port (e.g., `5000`).
-- `MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`, `MYSQL_PORT`: MySQL configuration.
-
-**Note**: Secure `.env` and exclude from version control.
+**Note**: Keep `.env` secure and exclude from version control.
 
 ## Security Notes
-
-- **API Keys**: Store in `.env`, not code.
-- **HTTPS**: Use in production for security.
-- **Session Data**: Stored in memory, resets after session.
-- **Logging**: Sensitive data (e.g., headers, body) logged to MySQL and file.
+- **API Keys**: Store in `.env`, not in code.
+- **HTTPS**: Recommended for production.
+- **Session Data**: In-memory, cleared after session ends.
+- **Logging**: Includes sensitive data (e.g., phone numbers) in MySQL and logs.
 
 ## Limitations
-
-- Requires internet for APIs.
-- No persistent contact storage.
-- Audio quality relies on ElevenLabs.
-- MySQL connection needed for logging.
+- Requires internet for API calls.
+- No persistent contact storage beyond session.
+- Audio quality depends on ElevenLabs.
+- MySQL required for logging.
 
 ## Troubleshooting
-
-- **API Errors**: Verify `OPENAI_API_KEY`, `ELEVENLABS_API_KEY`.
-- **MySQL Issues**: Check `MYSQL_*` variables, server status.
-- **Server Issues**: Ensure `PORT` is free, `HOST` is correct.
-- **Audio Issues**: Confirm ElevenLabs API key, network.
+- **API Errors**: Check `OPENAI_API_KEY` and `ELEVENLABS_API_KEY`.
+- **MySQL Issues**: Verify `MYSQL_*` variables and server status.
+- **Server Issues**: Ensure `PORT` is free and `HOST` is valid.
+- **Audio Issues**: Validate ElevenLabs API key and network connectivity.
