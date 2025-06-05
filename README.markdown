@@ -39,15 +39,6 @@ cd <repository-directory>
 ```bash
 pip install -r requirements.txt
 ```
-**Required Packages**:
-```
-flask
-flask-cors
-python-dotenv
-openai
-requests
-mysql-connector-python
-```
 
 ### Step 4: Configure `.env`
 Create a `.env` file in the project root:
