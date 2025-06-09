@@ -48,6 +48,7 @@ MYSQL_PORT = int(os.getenv("MYSQL_PORT", 3306))
 # Create audio storage directory
 os.makedirs(AUDIO_STORAGE_PATH, exist_ok=True)
 
+
 # MySQL connection
 def get_db_connection():
     try:
@@ -62,6 +63,7 @@ def get_db_connection():
     except Error as e:
         logger.error(f"Database connection error: {e}")
         return None
+
 
 # Initialize database
 def init_db():
@@ -99,11 +101,13 @@ def init_db():
         if connection and connection.is_connected():
             connection.close()
 
+
 # Helper function to format timestamp
 def format_timestamp(timestamp):
     if isinstance(timestamp, datetime):
         return timestamp.strftime('%H:%M %d/%m/%Y')
     return timestamp
+
 
 # Save log to MySQL
 def save_log_to_db(uuid=None, request_text=None, number=None, response_text=None, audio_link=None, end=0, transfer=0):
@@ -124,7 +128,8 @@ def save_log_to_db(uuid=None, request_text=None, number=None, response_text=None
         cursor.execute("SELECT created_at FROM logs WHERE id = LAST_INSERT_ID()")
         created_at = cursor.fetchone()[0]
         formatted_time = format_timestamp(created_at)
-        logger.info(f"Log saved: uuid={uuid}, request_text='{request_text}', created_at={formatted_time}, end={end}, transfer={transfer}")
+        logger.info(
+            f"Log saved: uuid={uuid}, request_text='{request_text}', created_at={formatted_time}, end={end}, transfer={transfer}")
     except Error as e:
         logger.error(f"Error saving log: {e}")
     finally:
@@ -132,6 +137,7 @@ def save_log_to_db(uuid=None, request_text=None, number=None, response_text=None
             cursor.close()
         if connection and connection.is_connected():
             connection.close()
+
 
 # Initialize database
 init_db()
@@ -151,6 +157,7 @@ if not all([MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE]):
 # Conversation state management
 conversation_states = {}
 
+
 def get_conversation_state(session_uuid):
     if session_uuid not in conversation_states:
         conversation_states[session_uuid] = {
@@ -161,6 +168,7 @@ def get_conversation_state(session_uuid):
         }
     return conversation_states[session_uuid]
 
+
 def reset_conversation_state(session_uuid):
     conversation_states[session_uuid] = {
         "step": "greeting",
@@ -168,6 +176,7 @@ def reset_conversation_state(session_uuid):
         "last_prompt": "greeting",
         "specific_repeat_count": {"who are you": 0, "what did you say": 0, "something else": 0}
     }
+
 
 # Prompts from PDF
 PROMPTS = {
@@ -202,6 +211,7 @@ for filename in os.listdir(AUDIO_STORAGE_PATH):
                 AUDIO_MAP[text] = filename
                 break
 
+
 def text_to_speech(text):
     audio_filename = AUDIO_MAP.get(text)
     if audio_filename and os.path.exists(os.path.join(AUDIO_STORAGE_PATH, audio_filename)):
@@ -212,13 +222,21 @@ def text_to_speech(text):
         logger.error(f"No pre-recorded audio found for text: '{text}'")
         return None
 
+
 # Process user input with improved logic
 def process_user_input(user_input, session_uuid, phone_number):
-    if not user_input or not session_uuid or not phone_number:
-        logger.error("Empty input, uuid, or phone number")
-        return "I'm sorry, I need your input, session ID, and phone number to proceed. Please try again.", 0, 0
+    if not session_uuid or not phone_number:
+        logger.error("Empty uuid or phone number")
+        return "I'm sorry, I need your session ID and phone number to proceed. Please try again.", 0, 0
 
     conversation_state = get_conversation_state(session_uuid)
+
+    # Check if this is the first call (no user input, just uuid and phone number)
+    if not user_input or user_input.strip() == "":
+        conversation_state['step'] = 'tax_debt'
+        conversation_state['last_prompt'] = 'greeting'
+        return PROMPTS["greeting"], 0, 0
+
     user_input_lower = user_input.lower().strip()
 
     # Handle no response or silence
@@ -241,7 +259,8 @@ def process_user_input(user_input, session_uuid, phone_number):
         "who are you": ["who are you", "who is this", "who's calling", "who are u"],
         "what did you say": ["what did you say", "repeat", "say again", "what was that", "huh"],
         "never_owed": ["i have never owed", "never owed", "no debt", "don’t owe", "never had debt"],
-        "how_did_u_get_number": ["how did u get my number", "where did you get my number", "how’d you get my phone", "who gave you my number", "where’s my number from"],
+        "how_did_u_get_number": ["how did u get my number", "where did you get my number", "how’d you get my phone",
+                                 "who gave you my number", "where’s my number from"],
         "on_disability": ["i am on disability", "on disability", "i’m disabled", "disability benefits"],
         "not_the_person": ["i am not the person", "wrong person", "not me", "wrong number"],
         "not_sure": ["not sure", "i dont know", "don’t know", "unsure", "maybe"],
@@ -269,14 +288,8 @@ def process_user_input(user_input, session_uuid, phone_number):
     # Determine the best prompt key based on user input
     matched_key = find_best_match(user_input_lower, input_mappings)
 
-    # Step: greeting
-    if conversation_state['step'] == 'greeting':
-        conversation_state['step'] = 'tax_debt'
-        conversation_state['last_prompt'] = 'greeting'
-        return PROMPTS["greeting"], 0, 0
-
     # Step: tax_debt
-    elif conversation_state['step'] == 'tax_debt':
+    if conversation_state['step'] == 'tax_debt':
         if matched_key == "who are you":
             conversation_state['specific_repeat_count']['who are you'] += 1
             if conversation_state['specific_repeat_count']['who are you'] >= 2:
@@ -409,6 +422,7 @@ def process_user_input(user_input, session_uuid, phone_number):
     conversation_state['last_prompt'] = 'something_else'
     return PROMPTS["something_else"], 0, 0
 
+
 # Log incoming requests
 @app.before_request
 def log_request():
@@ -433,21 +447,22 @@ def log_request():
     }
     logger.info(f"Incoming request: {log_data}")
 
+
 # Process text and generate MP3
 @app.route('/process_text_mp3', methods=['POST'])
 def process_text_mp3():
     try:
         data = request.get_json()
-        if not data or 'text' not in data or 'uuid' not in data or 'number' not in data:
-            logger.error("Missing text, uuid, or number in the request")
-            return jsonify({'error': 'Missing text, uuid, or number in the request'}), 400
+        if not data or 'uuid' not in data or 'number' not in data:
+            logger.error("Missing uuid or number in the request")
+            return jsonify({'error': 'Missing uuid or number in the request'}), 400
 
-        user_input = data['text'].strip()
+        user_input = data.get('text', '').strip()
         session_uuid = data['uuid']
         phone_number = data['number']
 
-        if not user_input or not session_uuid or not phone_number:
-            logger.error("Empty text, uuid, or number provided")
+        if not session_uuid or not phone_number:
+            logger.error("Empty uuid or number provided")
             save_log_to_db(
                 uuid=session_uuid,
                 request_text=user_input or "Empty input",
@@ -455,7 +470,7 @@ def process_text_mp3():
                 end=0,
                 transfer=0
             )
-            return jsonify({'error': 'Empty text, uuid, or number provided'}), 400
+            return jsonify({'error': 'Empty uuid or number provided'}), 400
 
         logger.info(f"Processing text input: '{user_input}' from session {session_uuid} with number {phone_number}")
         response_text, end, transfer = process_user_input(user_input, session_uuid, phone_number)
@@ -480,7 +495,8 @@ def process_text_mp3():
                 'error': 'Failed to generate audio response'
             }), 500
 
-        logger.info(f"Response generated: '{response_text}' with audio_url: {audio_url}, end: {end}, transfer: {transfer}")
+        logger.info(
+            f"Response generated: '{response_text}' with audio_url: {audio_url}, end: {end}, transfer: {transfer}")
         return jsonify({
             'response': response_text,
             'audio_url': audio_url,
@@ -500,6 +516,7 @@ def process_text_mp3():
         )
         return jsonify({'error': str(e)}), 500
 
+
 # Serve audio files
 @app.route('/static/audio/<filename>')
 def serve_audio(filename):
@@ -509,6 +526,7 @@ def serve_audio(filename):
         return jsonify({'error': 'Audio file not found'}), 404
     logger.info(f"Serving audio file: {audio_path}")
     return send_file(audio_path, mimetype='audio/mpeg')
+
 
 # Optional: Route to retrieve logs with formatted timestamp
 @app.route('/get_logs', methods=['GET'])
@@ -535,6 +553,7 @@ def get_logs():
             cursor.close()
         if connection and connection.is_connected():
             connection.close()
+
 
 if __name__ == '__main__':
     logger.info(f"Starting Tax Debt Assistant API on {HOST}:{PORT}...")
