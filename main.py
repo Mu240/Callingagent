@@ -333,7 +333,7 @@ def process_user_input(user_input, session_uuid, phone_number):
         elif matched_key == "yes":
             conversation_state['step'] = 'tax_type'
             conversation_state['last_prompt'] = 'yes'
-            return PROMPTS["yes"], 0, 1
+            return PROMPTS["yes"], 0, 0
 
         elif matched_key == "no":
             conversation_state['step'] = 'confirm_no'
