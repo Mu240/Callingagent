@@ -44,6 +44,7 @@ Create a `.env` file in the project root:
 ```
 HOST=0.0.0.0
 PORT=5000
+OPENAI_API_KEY=
 BASE_URL=http://localhost:5000/
 MYSQL_HOST=your_mysql_host
 MYSQL_USER=your_mysql_user
