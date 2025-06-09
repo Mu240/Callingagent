@@ -366,7 +366,7 @@ def process_user_input(user_input, session_uuid, phone_number):
         elif matched_key == "state":
             conversation_state['step'] = 'confirm_state'
             conversation_state['last_prompt'] = 'state'
-            return PROMPTS["state"], 1, 0
+            return PROMPTS["state"], 0, 0
         else:
             conversation_state['specific_repeat_count']['something else'] += 1
             if conversation_state['specific_repeat_count']['something else'] >= 3:
