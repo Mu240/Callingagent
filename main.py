@@ -184,7 +184,7 @@ PROMPTS = {
     "are_you_computer": "I am an AI Virtual Assistant, do you personally have any missed tax filings or owe more than Five Thousand dollars in federal taxes?",
     "do_not_call": "I would be happy to do that, but before I go do you personally have any missed tax filings or owe more than Five Thousand dollars in federal taxes?",
     "something_different": "I am sorry, I don't understand what you said but my name is Michele with Tax Group. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
-    "yes": "Ok let me transfer you to a live agent. Is your Tax Debt federal or State?. Please wait and the next available live agent will answer the call.",
+    "yes": "Ok let me transfer you to a live agent. Is your Tax Debt federal or State?",
     "state": "We can only help you if a Federal tax debt or unfiled back tax returns. Thank you for your time. Before I go, are you sure it is a State Tax debt not a federal Tax debt?",
     "no": "We can only help you if the tax debt is federal, but thank you for your time. Before I go, are you sure it is a state tax debt, not a federal tax debt?",
     "something_else": "I am sorry I did not understand, Let me repeat, do you personally have any tax filing you missed or do you owe more than five thousand dollars in federal taxes?"
