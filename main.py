@@ -147,7 +147,7 @@ def get_conversation_state(session_uuid):
             "step": "greeting",
             "repeat_count": 0,
             "last_prompt": "greeting",
-            "specific_repeat_count": {"who are you": 0, "what did you say": 0, "something else": 0}
+            "specific_repeat_count": {"who are you": 0, "what did you say": 0, "something different": 0}
         }
         logger.info(f"Initialized new conversation state for uuid={session_uuid}, step={conversation_states[session_uuid]['step']}")
     return conversation_states[session_uuid]
@@ -157,29 +157,30 @@ def reset_conversation_state(session_uuid):
         "step": "greeting",
         "repeat_count": 0,
         "last_prompt": "greeting",
-        "specific_repeat_count": {"who are you": 0, "what did you say": 0, "something else": 0}
+        "specific_repeat_count": {"who are you": 0, "what did you say": 0, "something different": 0}
     }
     logger.info(f"Reset conversation state for uuid={session_uuid} to step={conversation_states[session_uuid]['step']}")
 
-# Prompts from PDF
+# Prompts from document
 PROMPTS = {
     "greeting": "Hi, my name is Michele with Tax Group. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
-    "end_call": "Thank you for your time, unfortunately we are no able to help you at this time.",
+    "end_call": "Thank you for your time, unfortunately we are not able to help you at this time.",
     "transfer": "Please wait and the next available live agent will answer the call.",
     "never_owed": "Thank you for your time. It looks like we're unable to assist you at this time, but please feel free to call us in the future if you have any past tax filings that need to be completed or unresolved tax issues.",
-    "how_did_u_get_number": "not sure but Do you have a tax debt of five thousand dollars or unfiled tax returns?",
+    "how_did_u_get_number": "Not sure, but do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "on_disability": "We can help you. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "not_the_person": "I understand. Please feel free to call us in the future if you have any unfiled past tax returns or unresolved tax issues.",
     "not_sure": "If you'd like to check, I can transfer you to a live agent now. Would you like to see if you have any unresolved tax issues?",
-    "this_is_business": "Certainly, and sorry for the call. But before I go, do you personally have any missed tax filings or owe more than Five Thousand dollars in federal taxes?",
-    "what_is_this_about": "We help people with Federal Tax debts or past unfilled taxes.",
-    "are_you_computer": "I am an AI Virtual Assistant, do you personally have any missed tax filings or owe more than Five Thousand dollars in federal taxes?",
-    "do_not_call": "I would be happy to do that, but before I go do you personally have any missed tax filings or owe more than Five Thousand dollars in federal taxes?",
-    "something_different": "I am sorry, I don't understand what you said but my name is Michele with Tax Group. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
-    "yes": "Ok let me transfer you to a live agent. Is your Tax Debt federal or State?",
-    "state": "We can only help you if a Federal tax debt or unfiled back tax returns. Thank you for your time. Before I go, are you sure it is a State Tax debt not a federal Tax debt?",
-    "no": "We can only help you if the tax debt is Federal but thank you for your time. Before I go, are you sure you don't have a Federal tax debt or unfiled tax returns?",
-    "something_else": "I am sorry I did not understand, Let me repeat, do you personally have any tax filing you missed or do you owe more than five thousand dollars in federal taxes?"
+    "this_is_business": "Certainly, and sorry for the call. But before I go, do you personally have any missed tax filings or owe more than five thousand dollars in federal taxes?",
+    "what_is_this_about": "We help people with federal tax debts or past unfiled taxes.",
+    "are_you_computer": "I am an AI Virtual Assistant. Do you personally have any missed tax filings or owe more than five thousand dollars in federal taxes?",
+    "do_not_call": "I would be happy to do that, but before I go, do you personally have any missed tax filings or owe more than five thousand dollars in federal taxes?",
+    "something_different": "I am sorry, I don’t understand what you said, but my name is Michele with Tax Group. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
+    "yes": "Ok, let me transfer you to a live agent. Is your tax debt federal or state?",
+    "state": "We can only help you if a federal tax debt or unfiled back tax returns. Thank you for your time. Before I go, are you sure it is a state tax debt, not a federal tax debt?",
+    "federal": "Please wait and the next available live agent will answer the call.",
+    "no": "We can only help you if the tax debt is federal, but thank you for your time. Before I go, are you sure you don’t have a federal tax debt or unfiled tax returns?",
+    "something_else": "I am sorry I did not understand. Let me repeat, do you personally have any tax filings you missed or do you owe more than five thousand dollars in federal taxes?"
 }
 
 # Mapping of response texts to pre-recorded audio filenames
@@ -204,7 +205,7 @@ def text_to_speech(text):
         logger.error(f"No pre-recorded audio found for text: '{text}'")
         return None
 
-# Process user input with logic strictly following the PDF
+# Process user input with logic following the document
 def process_user_input(user_input, session_uuid, phone_number):
     if not user_input or not session_uuid or not phone_number:
         logger.error("Empty input, uuid, or phone number")
@@ -217,10 +218,10 @@ def process_user_input(user_input, session_uuid, phone_number):
     # Handle no response or silence
     if user_input_lower in ["", "silence"]:
         conversation_state['repeat_count'] += 1
-        if conversation_state['repeat_count'] >= 3:
+        if conversation_state['repeat_count'] >= 2:
             reset_conversation_state(session_uuid)
             return PROMPTS["end_call"], 1, 0
-        return PROMPTS[conversation_state['last_prompt']], 0, 0
+        return PROMPTS["greeting"], 0, 0
 
     # Step: greeting
     if conversation_state['step'] == 'greeting':
@@ -236,22 +237,22 @@ def process_user_input(user_input, session_uuid, phone_number):
             if conversation_state['specific_repeat_count']['who are you'] >= 2:
                 reset_conversation_state(session_uuid)
                 return PROMPTS["end_call"], 1, 0
-            conversation_state['last_prompt'] = 'who are you'
-            return PROMPTS["who are you"], 0, 0
+            conversation_state['last_prompt'] = 'greeting'
+            return PROMPTS["greeting"], 0, 0
 
         elif user_input_lower == "what did you say":
             conversation_state['specific_repeat_count']['what did you say'] += 1
             if conversation_state['specific_repeat_count']['what did you say'] >= 2:
                 reset_conversation_state(session_uuid)
                 return PROMPTS["end_call"], 1, 0
-            conversation_state['last_prompt'] = conversation_state['last_prompt']
-            return PROMPTS[conversation_state['last_prompt']], 0, 0
+            conversation_state['last_prompt'] = 'greeting'
+            return PROMPTS["greeting"], 0, 0
 
         elif user_input_lower == "i have never owed":
             reset_conversation_state(session_uuid)
             return PROMPTS["never_owed"], 1, 0
 
-        elif user_input_lower == "how did u get my number":
+        elif user_input_lower == "how did you get my number":
             conversation_state['last_prompt'] = 'how_did_u_get_number'
             return PROMPTS["how_did_u_get_number"], 0, 0
 
@@ -263,7 +264,7 @@ def process_user_input(user_input, session_uuid, phone_number):
             reset_conversation_state(session_uuid)
             return PROMPTS["not_the_person"], 1, 0
 
-        elif user_input_lower == "not sure off the top of my head":
+        elif user_input_lower in ["not sure off the top of my head", "i don’t know"]:
             conversation_state['step'] = 'offer_transfer'
             conversation_state['last_prompt'] = 'not_sure'
             return PROMPTS["not_sure"], 0, 0
@@ -284,11 +285,6 @@ def process_user_input(user_input, session_uuid, phone_number):
             conversation_state['last_prompt'] = 'do_not_call'
             return PROMPTS["do_not_call"], 0, 0
 
-        elif user_input_lower == "i dont know":
-            conversation_state['step'] = 'offer_transfer'
-            conversation_state['last_prompt'] = 'not_sure'
-            return PROMPTS["not_sure"], 0, 0
-
         elif user_input_lower == "yes":
             conversation_state['step'] = 'tax_type'
             conversation_state['last_prompt'] = 'yes'
@@ -300,9 +296,9 @@ def process_user_input(user_input, session_uuid, phone_number):
             conversation_state['last_prompt'] = 'no'
             return PROMPTS["no"], 0, 0
 
-        else:  # Something else we don't understand
-            conversation_state['specific_repeat_count']['something else'] += 1
-            if conversation_state['specific_repeat_count']['something else'] >= 3:
+        else:  # Something different, not understood
+            conversation_state['specific_repeat_count']['something different'] += 1
+            if conversation_state['specific_repeat_count']['something different'] >= 2:
                 reset_conversation_state(session_uuid)
                 return PROMPTS["end_call"], 1, 0
             conversation_state['last_prompt'] = 'something_different'
@@ -324,14 +320,14 @@ def process_user_input(user_input, session_uuid, phone_number):
         if user_input_lower == "federal":
             reset_conversation_state(session_uuid)
             logger.info(f"Triggering transfer for uuid={session_uuid}")
-            return PROMPTS["transfer"], 0, 1
+            return PROMPTS["federal"], 0, 1
         elif user_input_lower == "state":
             conversation_state['step'] = 'confirm_state'
             conversation_state['last_prompt'] = 'state'
             return PROMPTS["state"], 0, 0
         else:
-            conversation_state['specific_repeat_count']['something else'] += 1
-            if conversation_state['specific_repeat_count']['something else'] >= 3:
+            conversation_state['specific_repeat_count']['something different'] += 1
+            if conversation_state['specific_repeat_count']['something different'] >= 2:
                 reset_conversation_state(session_uuid)
                 return PROMPTS["end_call"], 1, 0
             conversation_state['last_prompt'] = 'something_else'
@@ -339,39 +335,40 @@ def process_user_input(user_input, session_uuid, phone_number):
 
     # Step: confirm_no
     elif conversation_state['step'] == 'confirm_no':
-        if user_input_lower == "yes":  # Confirms no federal tax debt
+        if user_input_lower in ["yes", "silence", ""]:
             reset_conversation_state(session_uuid)
-            return PROMPTS["no"], 1, 0  # Changed to return "no" response
-        elif user_input_lower == "no":  # Indicates they might have federal tax debt
+            return PROMPTS["end_call"], 1, 0
+        elif user_input_lower == "no":
             conversation_state['step'] = 'tax_type'
             conversation_state['last_prompt'] = 'yes'
             logger.info(f"Transitioned to step 'tax_type' for uuid={session_uuid}")
-            return PROMPTS["yes"], 0, 0  # Changed to return "yes" response
+            return PROMPTS["yes"], 0, 0
         else:
             reset_conversation_state(session_uuid)
             return PROMPTS["end_call"], 1, 0
 
     # Step: confirm_state
     elif conversation_state['step'] == 'confirm_state':
-        if user_input_lower == "yes":  # Confirms state tax debt
+        if user_input_lower == "yes":
             reset_conversation_state(session_uuid)
-            return PROMPTS["yes"], 0, 0  # Changed to return "no" response
-        elif user_input_lower == "no":  # Indicates it might be federal
+            return PROMPTS["end_call"], 1, 0
+        elif user_input_lower == "no":
             conversation_state['step'] = 'tax_type'
-            conversation_state['last_prompt'] = 'no'
+            conversation_state['last_prompt'] = 'federal'
             logger.info(f"Transitioned to step 'tax_type' for uuid={session_uuid}")
-            return PROMPTS["no"], 0, 0  # Changed to return "yes" response
+            return PROMPTS["federal"], 0, 1
         else:
             reset_conversation_state(session_uuid)
             return PROMPTS["end_call"], 1, 0
 
     # Fallback: If no match, repeat the last prompt or end after too many attempts
-    conversation_state['specific_repeat_count']['something else'] += 1
-    if conversation_state['specific_repeat_count']['something else'] >= 3:
+    conversation_state['specific_repeat_count']['something different'] += 1
+    if conversation_state['specific_repeat_count']['something different'] >= 2:
         reset_conversation_state(session_uuid)
         return PROMPTS["end_call"], 1, 0
     conversation_state['last_prompt'] = 'something_else'
     return PROMPTS["something_else"], 0, 0
+
 # Log incoming requests
 @app.before_request
 def log_request():
