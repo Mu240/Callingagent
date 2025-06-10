@@ -28,7 +28,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = '123456'
+app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", '123456')
 CORS(app)
 
 # Configuration
@@ -87,7 +87,7 @@ def init_db():
         """
         cursor.execute(create_table_query)
         connection.commit()
-        logger.info("New logs table created with timestamp, end, and transfer columns")
+        logger.info("New logs table created")
     except Error as e:
         logger.error(f"Database initialization error: {e}")
     finally:
@@ -147,7 +147,9 @@ def get_conversation_state(session_uuid):
             "step": "greeting",
             "repeat_count": 0,
             "last_prompt": "greeting",
-            "specific_repeat_count": {"who are you": 0, "what did you say": 0, "something different": 0}
+            "last_input": None,
+            "specific_repeat_count": {"who are you": 0, "what did you say": 0, "something_different": 0},
+            "input_counts": {}
         }
         logger.info(f"Initialized new conversation state for uuid={session_uuid}, step={conversation_states[session_uuid]['step']}")
     return conversation_states[session_uuid]
@@ -157,11 +159,34 @@ def reset_conversation_state(session_uuid):
         "step": "greeting",
         "repeat_count": 0,
         "last_prompt": "greeting",
-        "specific_repeat_count": {"who are you": 0, "what did you say": 0, "something different": 0}
+        "last_input": None,
+        "specific_repeat_count": {"who are you": 0, "what did you say": 0, "something_different": 0},
+        "input_counts": {}
     }
-    logger.info(f"Reset conversation state for uuid={session_uuid} to step={conversation_states[session_uuid]['step']}")
+    logger.info(f"Reset conversation state for uuid={session_uuid}")
 
-# Prompts from document
+# Input mappings for user input variations
+input_mappings = {
+    "greeting": ["hi", "hello", "start", "begin"],
+    "who are you": ["who are you", "who is this", "who's calling", "who are u"],
+    "what did you say": ["what did you say", "repeat", "say again", "what was that", "huh"],
+    "never_owed": ["i have never owed", "never owed", "no debt", "don’t owe", "never had debt", "owe"],
+    "how_did_u_get_number": ["number", "how did u get my number", "where did you get my number", "how’d you get my phone", "who gave you my number", "where’s my number from"],
+    "on_disability": ["disable", "i am on disability", "on disability", "i’m disabled", "disability benefits"],
+    "not_the_person": ["not the person", "i am not the person", "wrong person", "not me", "wrong number"],
+    "not_sure": ["not sure", "i dont know", "don’t know", "unsure", "maybe"],
+    "this_is_business": ["business", "this is a business", "business line", "company phone", "not personal"],
+    "what_is_this_about": ["what is this about", "what’s this for", "why are you calling", "what do you want"],
+    "are_you_computer": ["real person", "computer", "are you a computer", "are you a real person", "is this a bot", "are you ai", "robot"],
+    "do_not_call": ["call", "put me on your do not call list", "do not call", "don’t call me", "stop calling", "no calls"],
+    "yes": ["yes", "yeah", "yep", "sure", "okay", "ok"],
+    "no": ["no", "nope", "not really", "nah", "no way"],
+    "federal": ["federal", "fed", "irs", "federal tax", "federal debt"],
+    "state": ["state", "state tax", "local tax", "not federal", "state debt"],
+    "something_else": []
+}
+
+# Prompts for responses
 PROMPTS = {
     "greeting": "Hi, my name is Michele with Tax Group. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "end_call": "Thank you for your time, unfortunately we are not able to help you at this time.",
@@ -183,10 +208,10 @@ PROMPTS = {
     "something_else": "I am sorry I did not understand. Let me repeat, do you personally have any tax filings you missed or do you owe more than five thousand dollars in federal taxes?"
 }
 
-# Mapping of response texts to pre-recorded audio filenames
+# Mapping of response texts to audio filenames
 AUDIO_MAP = {text: f"{key}.mp3" for key, text in PROMPTS.items()}
 
-# Dynamically update AUDIO_MAP with existing audio files
+# Update AUDIO_MAP with existing audio files
 for filename in os.listdir(AUDIO_STORAGE_PATH):
     if filename.endswith(".mp3"):
         base_name = filename.replace(".mp3", "").lower()
@@ -201,173 +226,185 @@ def text_to_speech(text):
         audio_url = f"{BASE_URL}{AUDIO_STORAGE_PATH}{audio_filename}"
         logger.info(f"Using pre-recorded audio: {audio_url} for text: '{text}'")
         return audio_url
-    else:
-        logger.error(f"No pre-recorded audio found for text: '{text}'")
-        return None
+    logger.error(f"No pre-recorded audio found for text: '{text}'")
+    return None
 
-# Process user input with logic following the document
+# Process user input with corrected logic
 def process_user_input(user_input, session_uuid, phone_number):
     if not user_input or not session_uuid or not phone_number:
         logger.error("Empty input, uuid, or phone number")
-        return "I'm sorry, I need your input, session ID, and phone number to proceed. Please try again.", 0, 0
+        return PROMPTS["something_different"], 0, 0
 
     conversation_state = get_conversation_state(session_uuid)
-    logger.info(f"Processing input '{user_input}' in state {conversation_state['step']}")
     user_input_lower = user_input.lower().strip()
+    mapped_input = map_user_input(user_input_lower)
 
-    # Handle no response or silence
+    # Track input repeats (excluding yes/no to avoid premature termination)
+    if mapped_input not in ["yes", "no", ""]:
+        conversation_state['input_counts'][mapped_input] = conversation_state['input_counts'].get(mapped_input, 0) + 1
+        if conversation_state['input_counts'][mapped_input] >= 2:
+            logger.info(f"Ending call for uuid={session_uuid} due to repeated input '{mapped_input}'")
+            reset_conversation_state(session_uuid)
+            return PROMPTS["end_call"], 1, 0
+    conversation_state['last_input'] = mapped_input
+
+    # Handle silence or empty input
     if user_input_lower in ["", "silence"]:
         conversation_state['repeat_count'] += 1
         if conversation_state['repeat_count'] >= 2:
+            logger.info(f"Ending call for uuid={session_uuid} due to repeated silence")
             reset_conversation_state(session_uuid)
             return PROMPTS["end_call"], 1, 0
+        return PROMPTS[conversation_state['last_prompt']], 0, 0
+
+    # Interrupt and handle mapped input regardless of current step
+    if mapped_input == "greeting":
+        conversation_state['last_prompt'] = "greeting"
         return PROMPTS["greeting"], 0, 0
 
-    # Step: greeting
-    if conversation_state['step'] == 'greeting':
-        conversation_state['step'] = 'tax_debt'
-        conversation_state['last_prompt'] = 'greeting'
-        logger.info(f"Transitioned to step 'tax_debt' for uuid={session_uuid}")
+    elif mapped_input == "who are you":
+        conversation_state['specific_repeat_count']['who are you'] += 1
+        if conversation_state['specific_repeat_count']['who are you'] >= 2:
+            logger.info(f"Ending call for uuid={session_uuid} due to repeated 'who are you'")
+            reset_conversation_state(session_uuid)
+            return PROMPTS["end_call"], 1, 0
+        conversation_state['last_prompt'] = "greeting"
         return PROMPTS["greeting"], 0, 0
 
-    # Step: tax_debt
-    elif conversation_state['step'] == 'tax_debt':
-        if user_input_lower in ["who are you", "who is this"]:
-            conversation_state['specific_repeat_count']['who are you'] += 1
-            if conversation_state['specific_repeat_count']['who are you'] >= 2:
-                reset_conversation_state(session_uuid)
-                return PROMPTS["end_call"], 1, 0
-            conversation_state['last_prompt'] = 'greeting'
-            return PROMPTS["greeting"], 0, 0
-
-        elif user_input_lower == "what did you say":
-            conversation_state['specific_repeat_count']['what did you say'] += 1
-            if conversation_state['specific_repeat_count']['what did you say'] >= 2:
-                reset_conversation_state(session_uuid)
-                return PROMPTS["end_call"], 1, 0
-            conversation_state['last_prompt'] = 'greeting'
-            return PROMPTS["greeting"], 0, 0
-
-        elif user_input_lower == "i have never owed":
+    elif mapped_input == "what did you say":
+        conversation_state['specific_repeat_count']['what did you say'] += 1
+        if conversation_state['specific_repeat_count']['what did you say'] >= 2:
+            logger.info(f"Ending call for uuid={session_uuid} due to repeated 'what did you say'")
             reset_conversation_state(session_uuid)
-            return PROMPTS["never_owed"], 1, 0
+            return PROMPTS["end_call"], 1, 0
+        conversation_state['last_prompt'] = conversation_state['last_prompt']
+        return PROMPTS[conversation_state['last_prompt']], 0, 0
 
-        elif user_input_lower == "how did you get my number":
-            conversation_state['last_prompt'] = 'how_did_u_get_number'
-            return PROMPTS["how_did_u_get_number"], 0, 0
+    elif mapped_input == "never_owed":
+        reset_conversation_state(session_uuid)
+        return PROMPTS["never_owed"], 1, 0
 
-        elif user_input_lower == "i am on disability":
-            conversation_state['last_prompt'] = 'on_disability'
-            return PROMPTS["on_disability"], 0, 0
+    elif mapped_input == "how_did_u_get_number":
+        conversation_state['last_prompt'] = "how_did_u_get_number"
+        return PROMPTS["how_did_u_get_number"], 0, 0
 
-        elif user_input_lower == "i am not the person you need to talk to":
-            reset_conversation_state(session_uuid)
-            return PROMPTS["not_the_person"], 1, 0
+    elif mapped_input == "on_disability":
+        conversation_state['last_prompt'] = "on_disability"
+        return PROMPTS["on_disability"], 0, 0
 
-        elif user_input_lower in ["not sure off the top of my head", "i don’t know"]:
-            conversation_state['step'] = 'offer_transfer'
-            conversation_state['last_prompt'] = 'not_sure'
-            return PROMPTS["not_sure"], 0, 0
+    elif mapped_input == "not_the_person":
+        reset_conversation_state(session_uuid)
+        return PROMPTS["not_the_person"], 1, 0
 
-        elif user_input_lower == "this is a business":
-            conversation_state['last_prompt'] = 'this_is_business'
-            return PROMPTS["this_is_business"], 0, 0
+    elif mapped_input == "not_sure":
+        conversation_state['step'] = "offer_transfer"
+        conversation_state['last_prompt'] = "not_sure"
+        return PROMPTS["not_sure"], 0, 0
 
-        elif user_input_lower == "what is this about":
-            conversation_state['last_prompt'] = 'what_is_this_about'
-            return PROMPTS["what_is_this_about"], 0, 0
+    elif mapped_input == "this_is_business":
+        conversation_state['last_prompt'] = "this_is_business"
+        return PROMPTS["this_is_business"], 0, 0
 
-        elif user_input_lower in ["are you a computer", "are you a real person"]:
-            conversation_state['last_prompt'] = 'are_you_computer'
-            return PROMPTS["are_you_computer"], 0, 0
+    elif mapped_input == "what_is_this_about":
+        conversation_state['last_prompt'] = "what_is_this_about"
+        return PROMPTS["what_is_this_about"], 0, 0
 
-        elif user_input_lower == "put me on your do not call list":
-            conversation_state['last_prompt'] = 'do_not_call'
-            return PROMPTS["do_not_call"], 0, 0
+    elif mapped_input == "are_you_computer":
+        conversation_state['last_prompt'] = "are_you_computer"
+        return PROMPTS["are_you_computer"], 0, 0
 
-        elif user_input_lower == "yes":
-            conversation_state['step'] = 'tax_type'
-            conversation_state['last_prompt'] = 'yes'
+    elif mapped_input == "do_not_call":
+        conversation_state['last_prompt'] = "do_not_call"
+        return PROMPTS["do_not_call"], 0, 0
+
+    # Handle conversation flow based on current step
+    if conversation_state['step'] == "greeting":
+        if mapped_input == "yes":
+            conversation_state['step'] = "tax_type"
+            conversation_state['last_prompt'] = "yes"
             logger.info(f"Transitioned to step 'tax_type' for uuid={session_uuid}")
             return PROMPTS["yes"], 0, 0
-
-        elif user_input_lower == "no":
-            conversation_state['step'] = 'confirm_no'
-            conversation_state['last_prompt'] = 'no'
+        elif mapped_input == "no":
+            conversation_state['step'] = "confirm_no"
+            conversation_state['last_prompt'] = "no"
             return PROMPTS["no"], 0, 0
-
-        else:  # Something different, not understood
-            conversation_state['specific_repeat_count']['something different'] += 1
-            if conversation_state['specific_repeat_count']['something different'] >= 2:
+        else:
+            conversation_state['specific_repeat_count']['something_different'] += 1
+            if conversation_state['specific_repeat_count']['something_different'] >= 2:
+                logger.info(f"Ending call for uuid={session_uuid} due to repeated 'something_different'")
                 reset_conversation_state(session_uuid)
                 return PROMPTS["end_call"], 1, 0
-            conversation_state['last_prompt'] = 'something_different'
+            conversation_state['last_prompt'] = "something_different"
             return PROMPTS["something_different"], 0, 0
 
-    # Step: offer_transfer
-    elif conversation_state['step'] == 'offer_transfer':
-        if user_input_lower == "yes":
-            conversation_state['step'] = 'tax_type'
-            conversation_state['last_prompt'] = 'yes'
+    elif conversation_state['step'] == "offer_transfer":
+        if mapped_input == "yes":
+            conversation_state['step'] = "tax_type"
+            conversation_state['last_prompt'] = "yes"
             logger.info(f"Transitioned to step 'tax_type' for uuid={session_uuid}")
             return PROMPTS["yes"], 0, 0
         else:
             reset_conversation_state(session_uuid)
             return PROMPTS["end_call"], 1, 0
 
-    # Step: tax_type
-    elif conversation_state['step'] == 'tax_type':
-        if user_input_lower == "federal":
+    elif conversation_state['step'] == "tax_type":
+        if mapped_input == "federal":
             reset_conversation_state(session_uuid)
             logger.info(f"Triggering transfer for uuid={session_uuid}")
             return PROMPTS["federal"], 0, 1
-        elif user_input_lower == "state":
-            conversation_state['step'] = 'confirm_state'
-            conversation_state['last_prompt'] = 'state'
+        elif mapped_input == "state":
+            conversation_state['step'] = "confirm_state"
+            conversation_state['last_prompt'] = "state"
             return PROMPTS["state"], 0, 0
         else:
-            conversation_state['specific_repeat_count']['something different'] += 1
-            if conversation_state['specific_repeat_count']['something different'] >= 2:
+            conversation_state['specific_repeat_count']['something_different'] += 1
+            if conversation_state['specific_repeat_count']['something_different'] >= 2:
+                logger.info(f"Ending call for uuid={session_uuid} due to repeated 'something_different'")
                 reset_conversation_state(session_uuid)
                 return PROMPTS["end_call"], 1, 0
-            conversation_state['last_prompt'] = 'something_else'
+            conversation_state['last_prompt'] = "something_else"
             return PROMPTS["something_else"], 0, 0
 
-    # Step: confirm_no
-    elif conversation_state['step'] == 'confirm_no':
-        if user_input_lower in ["yes", "silence", ""]:
+    elif conversation_state['step'] == "confirm_no":
+        if mapped_input in ["yes", "", "silence"]:
             reset_conversation_state(session_uuid)
             return PROMPTS["end_call"], 1, 0
-        elif user_input_lower == "no":
-            conversation_state['step'] = 'tax_type'
-            conversation_state['last_prompt'] = 'yes'
+        elif mapped_input == "no":
+            conversation_state['step'] = "tax_type"
+            conversation_state['last_prompt'] = "yes"
             logger.info(f"Transitioned to step 'tax_type' for uuid={session_uuid}")
             return PROMPTS["yes"], 0, 0
         else:
             reset_conversation_state(session_uuid)
             return PROMPTS["end_call"], 1, 0
 
-    # Step: confirm_state
-    elif conversation_state['step'] == 'confirm_state':
-        if user_input_lower == "yes":
+    elif conversation_state['step'] == "confirm_state":
+        if mapped_input == "yes":
             reset_conversation_state(session_uuid)
             return PROMPTS["end_call"], 1, 0
-        elif user_input_lower == "no":
-            conversation_state['step'] = 'tax_type'
-            conversation_state['last_prompt'] = 'federal'
-            logger.info(f"Transitioned to step 'tax_type' for uuid={session_uuid}")
+        elif mapped_input == "no":
+            reset_conversation_state(session_uuid)
+            logger.info(f"Triggering transfer for uuid={session_uuid}")
             return PROMPTS["federal"], 0, 1
         else:
             reset_conversation_state(session_uuid)
             return PROMPTS["end_call"], 1, 0
 
-    # Fallback: If no match, repeat the last prompt or end after too many attempts
-    conversation_state['specific_repeat_count']['something different'] += 1
-    if conversation_state['specific_repeat_count']['something different'] >= 2:
+    # Fallback for unmatched cases
+    conversation_state['specific_repeat_count']['something_different'] += 1
+    if conversation_state['specific_repeat_count']['something_different'] >= 2:
+        logger.info(f"Ending call for uuid={session_uuid} due to repeated 'something_different'")
         reset_conversation_state(session_uuid)
         return PROMPTS["end_call"], 1, 0
-    conversation_state['last_prompt'] = 'something_else'
+    conversation_state['last_prompt'] = "something_else"
     return PROMPTS["something_else"], 0, 0
+
+# Map user input to a key
+def map_user_input(user_input_lower):
+    for key, phrases in input_mappings.items():
+        if user_input_lower in phrases:
+            return key
+    return "something_else"
 
 # Log incoming requests
 @app.before_request
@@ -470,7 +507,7 @@ def serve_audio(filename):
     logger.info(f"Serving audio file: {audio_path}")
     return send_file(audio_path, mimetype='audio/mpeg')
 
-# Optional: Route to retrieve logs with formatted timestamp
+# Retrieve logs
 @app.route('/get_logs', methods=['GET'])
 def get_logs():
     connection = get_db_connection()
