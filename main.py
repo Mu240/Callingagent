@@ -329,7 +329,7 @@ def process_user_input(user_input, session_uuid, phone_number):
     elif mapped_input == "never_owed":
         reset_conversation_state(session_uuid)
         conversation_state['last_prompt'] = "never_owed"
-        return PROMPTS["never_owed"], 1, 0
+        return PROMPTS["never_owed"], 0, 0
 
     elif mapped_input == "how_did_u_get_number":
         conversation_state['last_prompt'] = "how_did_u_get_number"
