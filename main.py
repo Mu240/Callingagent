@@ -199,7 +199,7 @@ STOP_WORDS = {
     "when", "where", "why", "how", "all", "any", "both", "each", "few",
     "more", "most", "other", "some", "such", "only",
     "own", "same", "so", "than", "too", "very", "s", "t", "can", "will",
-    "just", "don", "should", "now",
+    "just", "don", "should", "now", "do", "not",
     "it's", "you're", "he's", "she's", "we're", "they're", "i'm", "that's",
     "what's", "who's", "where's", "when's", "why's", "how's", "don't",
     "won't", "can't", "shouldn't", "wouldn't", "couldn't", "i've", "you've",
@@ -296,12 +296,13 @@ def process_user_input(user_input, session_uuid, phone_number):
     user_input_lower = user_input.lower().strip()
     mapped_input = map_user_input(user_input_lower)
 
-    if mapped_input not in ["yes", "no", ""]:
-        conversation_state['input_counts'][mapped_input] = conversation_state['input_counts'].get(mapped_input, 0) + 1
-        if conversation_state['input_counts'][mapped_input] >= 2 and mapped_input not in ["state", "federal"]:
-            logger.info(f"Ending call for uuid={session_uuid} due to repeated input '{mapped_input}'")
-            reset_conversation_state(session_uuid)
-            return PROMPTS["end_call"], 1, 0
+    # Track all input responses
+    conversation_state['input_counts'][mapped_input] = conversation_state['input_counts'].get(mapped_input, 0) + 1
+    # End call if any input (except "federal") is repeated twice
+    if mapped_input != "federal" and conversation_state['input_counts'][mapped_input] >= 2:
+        logger.info(f"Ending call for uuid={session_uuid} due to repeated input '{mapped_input}'")
+        reset_conversation_state(session_uuid)
+        return PROMPTS["end_call"], 1, 0
     conversation_state['last_input'] = mapped_input
 
     if user_input_lower in ["", "silence"]:
@@ -318,20 +319,10 @@ def process_user_input(user_input, session_uuid, phone_number):
         return PROMPTS["greeting"], 0, 0
 
     elif mapped_input == "who are you":
-        conversation_state['specific_repeat_count']['who are you'] += 1
-        if conversation_state['specific_repeat_count']['who are you'] >= 2:
-            logger.info(f"Ending call for uuid={session_uuid} due to repeated 'who are you'")
-            reset_conversation_state(session_uuid)
-            return PROMPTS["end_call"], 1, 0
         conversation_state['last_prompt'] = "who are you"
         return PROMPTS["who are you"], 0, 0
 
     elif mapped_input == "what did you say":
-        conversation_state['specific_repeat_count']['what did you say'] += 1
-        if conversation_state['specific_repeat_count']['what did you say'] >= 2:
-            logger.info(f"Ending call for uuid={session_uuid} due to repeated 'what did you say'")
-            reset_conversation_state(session_uuid)
-            return PROMPTS["end_call"], 1, 0
         conversation_state['last_prompt'] = conversation_state['last_prompt']
         return PROMPTS[conversation_state['last_prompt']], 0, 0
 
@@ -375,6 +366,10 @@ def process_user_input(user_input, session_uuid, phone_number):
         return PROMPTS["do_not_call"], 0, 0
 
     elif mapped_input == "federal":
+        if conversation_state['input_counts']['federal'] >= 2:
+            logger.info(f"Ending call for uuid={session_uuid} due to repeated 'federal' input")
+            reset_conversation_state(session_uuid)
+            return PROMPTS["end_call"], 1, 0
         reset_conversation_state(session_uuid)
         conversation_state['last_prompt'] = "federal"
         logger.info(f"Triggering transfer for uuid={session_uuid}")
@@ -396,11 +391,6 @@ def process_user_input(user_input, session_uuid, phone_number):
             conversation_state['last_prompt'] = "no"
             return PROMPTS["no"], 0, 0
         else:
-            conversation_state['specific_repeat_count']['something_different'] += 1
-            if conversation_state['specific_repeat_count']['something_different'] >= 2:
-                logger.info(f"Ending call for uuid={session_uuid} due to repeated 'something_different'")
-                reset_conversation_state(session_uuid)
-                return PROMPTS["end_call"], 1, 0
             conversation_state['last_prompt'] = "something_different"
             return PROMPTS["something_different"], 0, 0
 
@@ -415,11 +405,6 @@ def process_user_input(user_input, session_uuid, phone_number):
             conversation_state['last_prompt'] = "end_call"
             return PROMPTS["end_call"], 1, 0
         else:
-            conversation_state['specific_repeat_count']['something_different'] += 1
-            if conversation_state['specific_repeat_count']['something_different'] >= 2:
-                logger.info(f"Ending call for uuid={session_uuid} due to repeated 'something_different'")
-                reset_conversation_state(session_uuid)
-                return PROMPTS["end_call"], 1, 0
             conversation_state['last_prompt'] = "something_else"
             return PROMPTS["something_else"], 0, 0
 
@@ -434,11 +419,6 @@ def process_user_input(user_input, session_uuid, phone_number):
             conversation_state['last_prompt'] = "end_call"
             return PROMPTS["end_call"], 1, 0
         else:
-            conversation_state['specific_repeat_count']['something_different'] += 1
-            if conversation_state['specific_repeat_count']['something_different'] >= 2:
-                logger.info(f"Ending call for uuid={session_uuid} due to repeated 'something_different'")
-                reset_conversation_state(session_uuid)
-                return PROMPTS["end_call"], 1, 0
             conversation_state['last_prompt'] = "something_else"
             return PROMPTS["something_else"], 0, 0
 
@@ -460,11 +440,6 @@ def process_user_input(user_input, session_uuid, phone_number):
                 return PROMPTS["end_call"], 1, 0
             return PROMPTS[conversation_state['last_prompt']], 0, 0
         else:  # Handle unrecognized input
-            conversation_state['specific_repeat_count']['something_different'] += 1
-            if conversation_state['specific_repeat_count']['something_different'] >= 2:
-                logger.info(f"Ending call for uuid={session_uuid} due to repeated 'something_different'")
-                reset_conversation_state(session_uuid)
-                return PROMPTS["end_call"], 1, 0
             conversation_state['last_prompt'] = "something_else"
             return PROMPTS["something_else"], 0, 0
 
@@ -474,24 +449,18 @@ def process_user_input(user_input, session_uuid, phone_number):
             conversation_state['last_prompt'] = "end_call"
             return PROMPTS["end_call"], 1, 0
         elif mapped_input == "no":
+            if conversation_state['input_counts'].get('federal', 0) >= 1:
+                logger.info(f"Ending call for uuid={session_uuid} due to repeated 'federal' input after 'state'")
+                reset_conversation_state(session_uuid)
+                return PROMPTS["end_call"], 1, 0
             reset_conversation_state(session_uuid)
             conversation_state['last_prompt'] = "federal"
             logger.info(f"Triggering transfer for uuid={session_uuid}")
             return PROMPTS["federal"], 0, 1
         else:
-            conversation_state['specific_repeat_count']['something_different'] += 1
-            if conversation_state['specific_repeat_count']['something_different'] >= 2:
-                logger.info(f"Ending call for uuid={session_uuid} due to repeated 'something_different'")
-                reset_conversation_state(session_uuid)
-                return PROMPTS["end_call"], 1, 0
             conversation_state['last_prompt'] = "something_else"
             return PROMPTS["something_else"], 0, 0
 
-    conversation_state['specific_repeat_count']['something_different'] += 1
-    if conversation_state['specific_repeat_count']['something_different'] >= 2:
-        logger.info(f"Ending call for uuid={session_uuid} due to repeated 'something_different'")
-        reset_conversation_state(session_uuid)
-        return PROMPTS["end_call"], 1, 0
     conversation_state['last_prompt'] = "something_else"
     return PROMPTS["something_else"], 0, 0
 
