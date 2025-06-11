@@ -149,7 +149,7 @@ def get_conversation_state(session_uuid):
             "repeat_count": 0,
             "last_prompt": "greeting",
             "last_input": None,
-            "specific_repeat_count": {"who are you": 0, "what did you say": 0, "something_different": 0},
+            "specific_repeat_count": {"who are you": 0, "what did you say": 0, "something_different": 0, "not_the_person": 0},
             "input_counts": {}
         }
         logger.info(
@@ -162,7 +162,7 @@ def reset_conversation_state(session_uuid):
         "repeat_count": 0,
         "last_prompt": "greeting",
         "last_input": None,
-        "specific_repeat_count": {"who are you": 0, "what did you say": 0, "something_different": 0},
+        "specific_repeat_count": {"who are you": 0, "what did you say": 0, "something_different": 0, "not_the_person": 0},
         "input_counts": {}
     }
     logger.info(f"Reset conversation state for uuid={session_uuid}")
@@ -176,16 +176,19 @@ input_mappings = {
     "how_did_u_get_number": ["number", "how did u get my number", "where did you get my number",
                              "how’d you get my phone", "who gave you my number", "where’s my number from"],
     "on_disability": ["disable", "i am on disability", "on disability", "i’m disabled", "disability benefits"],
+    "social": ["social", "social security", "i am on social security", "on social security", "social benefits"],
     "not_the_person": ["not the person", "i am not the person", "wrong person", "not me", "wrong number"],
-    "not_sure": ["not sure", "i dont know", "don’t know", "unsure", "maybe","know"],
+    "not_sure": ["not sure", "i dont know", "don’t know", "unsure", "maybe", "know"],
     "this_is_business": ["business", "this is a business", "business line", "company phone", "not personal"],
     "what_is_this_about": ["what is this about", "what’s this for", "why are you calling", "what do you want"],
     "are_you_computer": ["real person", "computer", "are you a computer", "are you a real person", "is this a bot",
                          "are you ai", "robot"],
     "do_not_call": ["call", "put me on your do not call list", "do not call", "don’t call me", "stop calling",
                     "no calls"],
-    "yes": ["yes", "yeah", "yep", "sure", "okay", "ok"],
-    "no": ["no", "nope", "not really", "nah", "no way"],
+
+    "yes": ["yes", "yeah", "yep", "sure", "okay", "ok", "yup", "aye", "affirmative", "certainly", "of course", "definitely", "absolutely", "indeed", "sure thing", "you bet", "for sure", "by all means", "without a doubt", "I agree", "that’s right", "right on", "roger that", "true", "uh-huh", "totally", "okie-dokie", "for real"],
+    "no": ["no", "nope", "not really", "nah", "no way", "nay", "negative", "not at all", "absolutely not", "never", "not quite", "I don’t think so", "I’m afraid not", "regrettably not", "unfortunately not", "by no means", "out of the question", "nothing doing", "not happening", "no can do", "certainly not", "over my dead body", "count me out", "I’ll pass", "no siree", "not in a million years"],
+
     "federal": ["federal", "fed", "irs", "federal tax", "federal debt"],
     "state": ["state", "state tax", "local tax", "not federal", "state debt"],
     "something_else": []
@@ -197,7 +200,7 @@ STOP_WORDS = {
     "or", "but", "in", "on", "at", "to", "for", "of", "with", "by",
     "i", "you", "he", "she", "it", "we", "they", "that", "this", "what",
     "when", "where", "why", "how", "all", "any", "both", "each", "few",
-    "more", "most", "other", "some", "such", "only",
+    "more", "most", "other", "some", "such", "only","put","me","your",
     "own", "same", "so", "than", "too", "very", "s", "t", "can", "will",
     "just", "don", "should", "now", "do", "not",
     "it's", "you're", "he's", "she's", "we're", "they're", "i'm", "that's",
@@ -214,6 +217,7 @@ PROMPTS = {
     "never_owed": "We can only help you if the tax debt is federal, but thank you for your time. Before I go, are you sure you don’t have a federal tax debt or unfiled tax returns?",
     "how_did_u_get_number": "Not sure, but do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "on_disability": "We can help you. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
+    "social": "We can help you. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "not_the_person": "I understand. Please feel free to call us in the future if you have any unfiled past tax returns or unresolved tax issues.",
     "not_sure": "If you'd like to check, I can transfer you to a live agent now. Would you like to see if you have any unresolved tax issues?",
     "this_is_business": "Certainly, and sorry for the call. But before I go, do you personally have any missed tax filings or owe more than five thousand dollars in federal taxes?",
@@ -298,6 +302,9 @@ def process_user_input(user_input, session_uuid, phone_number):
 
     # Track all input responses
     conversation_state['input_counts'][mapped_input] = conversation_state['input_counts'].get(mapped_input, 0) + 1
+    # Track specific inputs in specific_repeat_count
+    if mapped_input in conversation_state['specific_repeat_count']:
+        conversation_state['specific_repeat_count'][mapped_input] += 1
     # End call if any input (except "federal") is repeated twice
     if mapped_input != "federal" and conversation_state['input_counts'][mapped_input] >= 2:
         logger.info(f"Ending call for uuid={session_uuid} due to repeated input '{mapped_input}'")
@@ -339,10 +346,13 @@ def process_user_input(user_input, session_uuid, phone_number):
         conversation_state['last_prompt'] = "on_disability"
         return PROMPTS["on_disability"], 0, 0
 
+    elif mapped_input == "social":
+        conversation_state['last_prompt'] = "social"
+        return PROMPTS["social"], 0, 0
+
     elif mapped_input == "not_the_person":
-        reset_conversation_state(session_uuid)
         conversation_state['last_prompt'] = "not_the_person"
-        return PROMPTS["not_the_person"], 1, 0
+        return PROMPTS["not_the_person"], 0, 0
 
     elif mapped_input == "not_sure":
         conversation_state['step'] = "offer_transfer"
@@ -354,8 +364,8 @@ def process_user_input(user_input, session_uuid, phone_number):
         return PROMPTS["this_is_business"], 0, 0
 
     elif mapped_input == "what_is_this_about":
-        conversation_state['last_prompt'] = "what_is_this_about"
-        return PROMPTS["what_is_this_about"], 0, 0
+        conversation_state["last_prompt"] = "what_is_this_different"
+        return PROMPTS["what_is_this_different"], 0, 0
 
     elif mapped_input == "are_you_computer":
         conversation_state['last_prompt'] = "are_you_computer"
@@ -502,7 +512,7 @@ def process_text_mp3():
         phone_number = data['number']
 
         if not user_input or not session_uuid or not phone_number:
-            logger.error("Empty text, uuid, or number provided")
+            logger.error("Empty text, uuid, or phone number provided")
             save_log_to_db(
                 uuid=session_uuid,
                 request_text=user_input or "Empty input",
