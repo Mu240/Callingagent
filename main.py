@@ -185,6 +185,7 @@ input_mappings = {
                          "are you ai", "robot"],
     "do_not_call": ["call", "put me on your do not call list", "do not call", "don’t call me", "stop calling",
                     "no calls"],
+    "both":["both", "federal and state", "state and federal", "both taxes"],
 
     "yes": ["yes", "yeah", "yep", "sure", "okay", "ok", "yup", "aye", "affirmative", "certainly", "of course", "definitely", "absolutely", "indeed", "sure thing", "you bet", "for sure", "by all means", "without a doubt", "I agree", "that’s right", "right on", "roger that", "true", "uh-huh", "totally", "okie-dokie", "for real"],
     "no": ["no", "nope", "not really", "nah", "no way", "nay", "negative", "not at all", "absolutely not", "never", "not quite", "I don’t think so", "I’m afraid not", "regrettably not", "unfortunately not", "by no means", "out of the question", "nothing doing", "not happening", "no can do", "certainly not", "over my dead body", "count me out", "I’ll pass", "no siree", "not in a million years"],
@@ -228,6 +229,7 @@ PROMPTS = {
     "yes": "Ok, let me transfer you to a live agent. Is your tax debt federal or state?",
     "state": "We can only help you if a federal tax debt or unfiled back tax returns. Thank you for your time. Before I go, are you sure it is a state tax debt, not a federal tax debt?",
     "federal": "Please wait and the next available live agent will answer the call.",
+    "both": "Please wait and the next available live agent will answer the call.",
     "no": "We can only help you if the tax debt is federal, but thank you for your time. Before I go, are you sure you don’t have a federal tax debt or unfiled tax returns?",
     "something_else": "I am sorry I did not understand. Let me repeat, do you personally have any tax filings you missed or do you owe more than five thousand dollars in federal taxes?"
 }
@@ -375,12 +377,7 @@ def process_user_input(user_input, session_uuid, phone_number):
         conversation_state['last_prompt'] = "do_not_call"
         return PROMPTS["do_not_call"], 0, 0
 
-    elif mapped_input == "federal":
-        if conversation_state['input_counts']['federal'] >= 2:
-            logger.info(f"Ending call for uuid={session_uuid} due to repeated 'federal' input")
-            reset_conversation_state(session_uuid)
-            return PROMPTS["end_call"], 1, 0
-        reset_conversation_state(session_uuid)
+    elif mapped_input == "federal" or "both":
         conversation_state['last_prompt'] = "federal"
         logger.info(f"Triggering transfer for uuid={session_uuid}")
         return PROMPTS["federal"], 0, 1
