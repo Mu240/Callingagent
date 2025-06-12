@@ -170,8 +170,8 @@ def reset_conversation_state(session_uuid):
 # Input mappings for user input variations
 input_mappings = {
     "greeting": ["hi", "hello", "start", "begin"],
-    "who are you": ["who are you", "who is this", "who's calling", "who are u"],
-    "what did you say": ["what did you say", "repeat", "say again", "what was that", "huh"],
+    "who_are_you": ["who are you", "who is this", "who's calling", "who are u"],
+    "what_did_you_say": ["what did you say", "repeat", "say again", "what was that", "huh"],
     "never_owed": ["i have never owed", "never owed", "no debt", "don’t owe", "never had debt", "owe"],
     "how_did_u_get_number": ["number", "how did u get my number", "where did you get my number",
                              "how’d you get my phone", "who gave you my number", "where’s my number from"],
@@ -213,6 +213,8 @@ STOP_WORDS = {
 # Prompts for responses
 PROMPTS = {
     "greeting": "Hi, my name is Michele with Tax Group. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
+    "who_are_you": "Hi, my name is Michele with Tax Group. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
+    "what_did_you_say": "Hi, my name is Michele with Tax Group. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "end_call": "Thank you for your time, unfortunately we are not able to help you at this time.",
     "transfer": "Please wait and the next available live agent will answer the call.",
     "never_owed": "We can only help you if the tax debt is federal, but thank you for your time. Before I go, are you sure you don’t have a federal tax debt or unfiled tax returns?",
@@ -327,16 +329,15 @@ def process_user_input(user_input, session_uuid, phone_number):
         conversation_state['step'] = "greeting"
         return PROMPTS["greeting"], 0, 0
 
-    elif mapped_input == "who are you":
-        conversation_state['last_prompt'] = "who are you"
-        return PROMPTS["who are you"], 0, 0
+    elif mapped_input == "who_are_you":
+        conversation_state['last_prompt'] = "who_are_you"
+        return PROMPTS["who_are_you"], 0, 0
 
-    elif mapped_input == "what did you say":
-        conversation_state['last_prompt'] = conversation_state['last_prompt']
-        return PROMPTS[conversation_state['last_prompt']], 0, 0
+    elif mapped_input == "what_did_you_say":
+        conversation_state['last_prompt'] = "what_did_you_say"
+        return PROMPTS["what_did_you_say"], 0, 0
 
     elif mapped_input == "never_owed":
-        reset_conversation_state(session_uuid)
         conversation_state['last_prompt'] = "never_owed"
         return PROMPTS["never_owed"], 0, 0
 
