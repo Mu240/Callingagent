@@ -183,8 +183,9 @@ input_mappings = {
     "what_is_this_about": ["what is this about", "what’s this for", "why are you calling", "what do you want"],
     "are_you_computer": ["real person", "computer", "are you a computer", "are you a real person", "is this a bot",
                          "are you ai", "robot"],
-    "do_not_call": ["call", "put me on your do not call list", "do not call", "don’t call me", "stop calling",
+    "do_not_call": ["put","list","put me on your do not call list", "do not call", "don’t call me", "stop calling",
                     "no calls"],
+    "not_a_problem": ["call","do not call me anymore", "do not call me again", "stop calling me"],
     "both": ["both", "federal and state", "state and federal", "both taxes"],
     "yes": ["yes", "yeah", "yep", "sure", "okay", "ok", "yup", "aye", "affirmative", "certainly", "of course", "definitely", "absolutely", "indeed", "sure thing", "you bet", "for sure", "by all means", "without a doubt", "I agree", "that’s right", "right on", "roger that", "true", "uh-huh", "totally", "okie-dokie", "for real"],
     "no": ["no", "nope", "not really", "nah", "no way", "nay", "negative", "not at all", "absolutely not", "never", "not quite", "I don’t think so", "I’m afraid not", "regrettably not", "unfortunately not", "by no means", "out of the question", "nothing doing", "not happening", "no can do", "certainly not", "over my dead body", "count me out", "I’ll pass", "no siree", "not in a million years"],
@@ -193,20 +194,18 @@ input_mappings = {
     "something_else": []
 }
 
-# List of common words to remove
+# List of common words to remove (updated to exclude problematic words)
 STOP_WORDS = {
-    "the", "a", "an", "like", "u", "were", "was", "is", "are", "and",
-    "or", "but", "in", "on", "at", "to", "for", "of", "with", "by",
-    "i", "you", "he", "she", "it", "we", "they", "that", "this", "what",
-    "when", "where", "why", "how", "all", "any", "both", "each", "few",
-    "more", "most", "other", "some", "such", "only", "put", "me", "your",
-    "own", "same", "so", "than", "too", "very", "s", "t", "can", "will",
-    "just", "don", "should", "now", "do", "not",
-    "it's", "you're", "he's", "she's", "we're", "they're", "i'm", "that's",
-    "what's", "who's", "where's", "when's", "why's", "how's", "don't",
-    "won't", "can't", "shouldn't", "wouldn't", "couldn't", "i've", "you've",
-    "they've", "we've"
+    "were", "was", "is", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by",
+    "he", "she", "it", "we", "they", "that", "this", "what", "when", "where", "why", "how", "all",
+    "each", "few", "more", "most", "other", "some", "such", "only", "your",
+    "own", "same", "so", "than", "too", "very", "can", "will", "just", "don", "should", "now",
+    "do", "it's", "you're", "he's", "she's", "we're", "they're", "i'm", "that's", "what's",
+    "who's", "where's", "when's", "why's", "how's", "won't", "can't", "shouldn't",
+    "wouldn't", "couldn't", "i've", "you've", "they've", "we've"
 }
+
+# Removed: "are", "you", "a", "the", "i", "am", "and" to preserve phrase integrity
 
 # Prompts for responses
 PROMPTS = {
@@ -225,6 +224,7 @@ PROMPTS = {
     "what_is_this_about": "We help people with federal tax debts or past unfiled taxes.",
     "are_you_computer": "I am an AI Virtual Assistant. Do you personally have any missed tax filings or owe more than five thousand dollars in federal taxes?",
     "do_not_call": "I would be happy to do that, but before I go, do you personally have any missed tax filings or owe more than five thousand dollars in federal taxes?",
+    "not_a_problem": "Not a problem I will put you on our Do Not call list  but before I go do you personally have any missed tax filings or owe more than Five Thousand dollars in federal taxes?",
     "something_different": "I am sorry, I don’t understand what you said, but my name is Michele with Tax Group. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "yes": "Ok, let me transfer you to a live agent. Is your tax debt federal or state?",
     "state": "We can only help you if a federal tax debt or unfiled back tax returns. Thank you for your time. Before I go, are you sure it is a state tax debt, not a federal tax debt?",
@@ -265,6 +265,13 @@ def map_user_input(user_input_lower):
 
     filtered_input = " ".join(filtered_words)
 
+    # Check for exact phrase matches first
+    for key, phrases in input_mappings.items():
+        for phrase in phrases:
+            if user_input_lower == phrase:  # Exact match before filtering
+                return key
+
+    # Check for filtered input matches
     if "federal" in filtered_words:
         return "federal"
     if "state" in filtered_words:
@@ -274,7 +281,7 @@ def map_user_input(user_input_lower):
         for phrase in phrases:
             phrase_words = phrase.split()
             filtered_phrase_words = [word for word in phrase_words if
-                                     word not in STOP_WORDS or word in ["state", "federal"]]
+                                    word not in STOP_WORDS or word in ["state", "federal"]]
             filtered_phrase = " ".join(filtered_phrase_words)
 
             if filtered_input == filtered_phrase:
@@ -322,70 +329,65 @@ def process_user_input(user_input, session_uuid, phone_number):
             return PROMPTS["end_call"], 1, 0
         return PROMPTS[conversation_state['last_prompt']], 0, 0
 
+    # Handle specific inputs explicitly
     if mapped_input == "greeting":
         conversation_state['last_prompt'] = "greeting"
         conversation_state['step'] = "greeting"
         return PROMPTS["greeting"], 0, 0
-
     elif mapped_input == "who_are_you":
         conversation_state['last_prompt'] = "who_are_you"
         return PROMPTS["who_are_you"], 0, 0
-
     elif mapped_input == "what_did_you_say":
         conversation_state['last_prompt'] = "what_did_you_say"
         return PROMPTS["what_did_you_say"], 0, 0
-
     elif mapped_input == "never_owed":
         conversation_state['last_prompt'] = "never_owed"
         return PROMPTS["never_owed"], 0, 0
-
     elif mapped_input == "how_did_u_get_number":
         conversation_state['last_prompt'] = "how_did_u_get_number"
         return PROMPTS["how_did_u_get_number"], 0, 0
-
     elif mapped_input == "on_disability":
         conversation_state['last_prompt'] = "on_disability"
         return PROMPTS["on_disability"], 0, 0
-
     elif mapped_input == "social":
         conversation_state['last_prompt'] = "social"
         return PROMPTS["social"], 0, 0
-
     elif mapped_input == "not_the_person":
         conversation_state['last_prompt'] = "not_the_person"
-        return PROMPTS["not_the_person"], 0, 0
-
+        return PROMPTS["not_the_person"], 1, 0
     elif mapped_input == "not_sure":
         conversation_state['step'] = "offer_transfer"
         conversation_state['last_prompt'] = "not_sure"
         return PROMPTS["not_sure"], 0, 0
-
     elif mapped_input == "this_is_business":
         conversation_state['last_prompt'] = "this_is_business"
         return PROMPTS["this_is_business"], 0, 0
-
     elif mapped_input == "what_is_this_about":
         conversation_state["last_prompt"] = "what_is_this_about"
         return PROMPTS["what_is_this_about"], 0, 0
-
     elif mapped_input == "are_you_computer":
         conversation_state['last_prompt'] = "are_you_computer"
         return PROMPTS["are_you_computer"], 0, 0
-
     elif mapped_input == "do_not_call":
         conversation_state['last_prompt'] = "do_not_call"
         return PROMPTS["do_not_call"], 0, 0
-
-    elif mapped_input == "federal" or mapped_input == "both":
+    elif mapped_input == "not_a_problem":
+        conversation_state['last_prompt'] = "not_a_problem"
+        return PROMPTS["not_a_problem"], 0, 0
+    elif mapped_input == "federal":
         conversation_state['last_prompt'] = "federal"
         logger.info(f"Triggering transfer for uuid={session_uuid}")
         return PROMPTS["federal"], 0, 1
-
+    elif mapped_input == "both":
+        conversation_state['last_prompt'] = "federal"
+        logger.info(f"Triggering transfer for uuid={session_uuid}")
+        return PROMPTS["federal"], 0, 1
     elif mapped_input == "state":
         conversation_state['step'] = "confirm_state"
         conversation_state['last_prompt'] = "state"
         return PROMPTS["state"], 0, 0
 
+    # Handle conversation steps
     if conversation_state['step'] == "greeting":
         if mapped_input == "yes":
             conversation_state['step'] = "tax_type"
@@ -456,38 +458,17 @@ def process_user_input(user_input, session_uuid, phone_number):
             conversation_state['last_prompt'] = "something_else"
             return PROMPTS["something_else"], 0, 0
 
-
     elif conversation_state['step'] == "confirm_state":
-
         if mapped_input == "yes":
-
             reset_conversation_state(session_uuid)
-
             conversation_state['last_prompt'] = "yes"
-
-            return PROMPTS["yes"], 0, 0
-
-        elif mapped_input == "no":
-
-            if conversation_state['input_counts'].get('no', 0) >= 1:
-                logger.info(f"Ending call for uuid={session_uuid} due to repeated 'federal' input after 'state'")
-
-                reset_conversation_state(session_uuid)
-
-                return PROMPTS["no"], 0, 0
-
-            reset_conversation_state(session_uuid)
-
-            conversation_state['last_prompt'] = "no"
-
+            return PROMPTS["yes"], 1, 0
+        elif mapped_input == "no" or mapped_input == "federal" or mapped_input == "both":
+            conversation_state['last_prompt'] = "federal"
             logger.info(f"Triggering transfer for uuid={session_uuid}")
-
-            return PROMPTS["no"], 0, 0
-
+            return PROMPTS["federal"], 0, 1
         else:
-
             conversation_state['last_prompt'] = "something_else"
-
             return PROMPTS["something_else"], 0, 0
 
     conversation_state['last_prompt'] = "something_else"
