@@ -367,8 +367,8 @@ def process_user_input(user_input, session_uuid, phone_number):
         return PROMPTS["this_is_business"], 0, 0
 
     elif mapped_input == "what_is_this_about":
-        conversation_state["last_prompt"] = "what_is_this_different"
-        return PROMPTS["what_is_this_different"], 0, 0
+        conversation_state["last_prompt"] = "what_is_this_about"
+        return PROMPTS["what_is_this_about"], 0, 0
 
     elif mapped_input == "are_you_computer":
         conversation_state['last_prompt'] = "are_you_computer"
