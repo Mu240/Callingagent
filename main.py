@@ -185,11 +185,9 @@ input_mappings = {
                          "are you ai", "robot"],
     "do_not_call": ["call", "put me on your do not call list", "do not call", "don’t call me", "stop calling",
                     "no calls"],
-    "both":["both", "federal and state", "state and federal", "both taxes"],
-
+    "both": ["both", "federal and state", "state and federal", "both taxes"],
     "yes": ["yes", "yeah", "yep", "sure", "okay", "ok", "yup", "aye", "affirmative", "certainly", "of course", "definitely", "absolutely", "indeed", "sure thing", "you bet", "for sure", "by all means", "without a doubt", "I agree", "that’s right", "right on", "roger that", "true", "uh-huh", "totally", "okie-dokie", "for real"],
     "no": ["no", "nope", "not really", "nah", "no way", "nay", "negative", "not at all", "absolutely not", "never", "not quite", "I don’t think so", "I’m afraid not", "regrettably not", "unfortunately not", "by no means", "out of the question", "nothing doing", "not happening", "no can do", "certainly not", "over my dead body", "count me out", "I’ll pass", "no siree", "not in a million years"],
-
     "federal": ["federal", "fed", "irs", "federal tax", "federal debt"],
     "state": ["state", "state tax", "local tax", "not federal", "state debt"],
     "something_else": []
@@ -201,7 +199,7 @@ STOP_WORDS = {
     "or", "but", "in", "on", "at", "to", "for", "of", "with", "by",
     "i", "you", "he", "she", "it", "we", "they", "that", "this", "what",
     "when", "where", "why", "how", "all", "any", "both", "each", "few",
-    "more", "most", "other", "some", "such", "only","put","me","your",
+    "more", "most", "other", "some", "such", "only", "put", "me", "your",
     "own", "same", "so", "than", "too", "very", "s", "t", "can", "will",
     "just", "don", "should", "now", "do", "not",
     "it's", "you're", "he's", "she's", "we're", "they're", "i'm", "that's",
@@ -378,7 +376,7 @@ def process_user_input(user_input, session_uuid, phone_number):
         conversation_state['last_prompt'] = "do_not_call"
         return PROMPTS["do_not_call"], 0, 0
 
-    elif mapped_input == "federal" or "both":
+    elif mapped_input == "federal" or mapped_input == "both":
         conversation_state['last_prompt'] = "federal"
         logger.info(f"Triggering transfer for uuid={session_uuid}")
         return PROMPTS["federal"], 0, 1
@@ -417,11 +415,18 @@ def process_user_input(user_input, session_uuid, phone_number):
             return PROMPTS["something_else"], 0, 0
 
     elif conversation_state['step'] == "tax_type":
-        if mapped_input == "yes":
-            conversation_state['step'] = "tax_type"
-            conversation_state['last_prompt'] = "yes"
-            logger.info(f"Repeating tax_type prompt for uuid={session_uuid}")
-            return PROMPTS["yes"], 0, 0
+        if mapped_input == "federal" or mapped_input == "both":
+            conversation_state['last_prompt'] = "federal"
+            logger.info(f"Triggering transfer for uuid={session_uuid}")
+            return PROMPTS["federal"], 0, 1
+        elif mapped_input == "state":
+            conversation_state['step'] = "confirm_state"
+            conversation_state['last_prompt'] = "state"
+            return PROMPTS["state"], 0, 0
+        elif mapped_input == "yes":
+            conversation_state['last_prompt'] = "federal"
+            logger.info(f"Triggering transfer for uuid={session_uuid} due to 'yes' in tax_type step")
+            return PROMPTS["federal"], 0, 1
         elif mapped_input == "no":
             reset_conversation_state(session_uuid)
             conversation_state['last_prompt'] = "end_call"
@@ -431,42 +436,58 @@ def process_user_input(user_input, session_uuid, phone_number):
             return PROMPTS["something_else"], 0, 0
 
     elif conversation_state['step'] == "confirm_no":
-        if mapped_input == "yes":  # User confirms no federal tax debt
+        if mapped_input == "yes":
             reset_conversation_state(session_uuid)
             conversation_state['last_prompt'] = "end_call"
             return PROMPTS["end_call"], 1, 0
-        elif mapped_input == "no":  # User indicates they might have federal tax debt
+        elif mapped_input == "no":
             conversation_state['step'] = "tax_type"
             conversation_state['last_prompt'] = "yes"
             logger.info(f"Transitioned to step 'tax_type' for uuid={session_uuid}")
             return PROMPTS["yes"], 0, 0
-        elif mapped_input == "":  # Handle silence
+        elif mapped_input == "":
             conversation_state['repeat_count'] += 1
             if conversation_state['repeat_count'] >= 2:
                 logger.info(f"Ending call for uuid={session_uuid} due to repeated silence")
                 reset_conversation_state(session_uuid)
                 return PROMPTS["end_call"], 1, 0
             return PROMPTS[conversation_state['last_prompt']], 0, 0
-        else:  # Handle unrecognized input
+        else:
             conversation_state['last_prompt'] = "something_else"
             return PROMPTS["something_else"], 0, 0
 
+
     elif conversation_state['step'] == "confirm_state":
+
         if mapped_input == "yes":
+
             reset_conversation_state(session_uuid)
-            conversation_state['last_prompt'] = "end_call"
-            return PROMPTS["end_call"], 1, 0
+
+            conversation_state['last_prompt'] = "yes"
+
+            return PROMPTS["yes"], 0, 0
+
         elif mapped_input == "no":
-            if conversation_state['input_counts'].get('federal', 0) >= 1:
+
+            if conversation_state['input_counts'].get('no', 0) >= 1:
                 logger.info(f"Ending call for uuid={session_uuid} due to repeated 'federal' input after 'state'")
+
                 reset_conversation_state(session_uuid)
-                return PROMPTS["end_call"], 1, 0
+
+                return PROMPTS["no"], 0, 0
+
             reset_conversation_state(session_uuid)
-            conversation_state['last_prompt'] = "federal"
+
+            conversation_state['last_prompt'] = "no"
+
             logger.info(f"Triggering transfer for uuid={session_uuid}")
-            return PROMPTS["federal"], 0, 1
+
+            return PROMPTS["no"], 0, 0
+
         else:
+
             conversation_state['last_prompt'] = "something_else"
+
             return PROMPTS["something_else"], 0, 0
 
     conversation_state['last_prompt'] = "something_else"
