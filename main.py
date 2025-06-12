@@ -177,7 +177,6 @@ input_mappings = {
                              "how’d you get my phone", "who gave you my number", "where’s my number from"],
     "on_disability": ["disable", "i am on disability", "on disability", "i’m disabled", "disability benefits"],
     "social": ["social", "social security", "i am on social security", "on social security", "social benefits"],
-    "not_the_person": ["not the person", "i am not the person", "wrong person", "not me", "wrong number"],
     "not_sure": ["not sure", "i dont know", "don’t know", "unsure", "maybe", "know"],
     "this_is_business": ["business", "this is a business", "business line", "company phone", "not personal"],
     "what_is_this_about": ["what is this about", "what’s this for", "why are you calling", "what do you want"],
@@ -218,7 +217,6 @@ PROMPTS = {
     "how_did_u_get_number": "Not sure, but do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "on_disability": "We can help you. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "social": "We can help you. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
-    "not_the_person": "I understand. Please feel free to call us in the future if you have any unfiled past tax returns or unresolved tax issues.",
     "not_sure": "If you'd like to check, I can transfer you to a live agent now. Would you like to see if you have any unresolved tax issues?",
     "this_is_business": "Certainly, and sorry for the call. But before I go, do you personally have any missed tax filings or owe more than five thousand dollars in federal taxes?",
     "what_is_this_about": "We help people with federal tax debts or past unfiled taxes.",
@@ -352,9 +350,6 @@ def process_user_input(user_input, session_uuid, phone_number):
     elif mapped_input == "social":
         conversation_state['last_prompt'] = "social"
         return PROMPTS["social"], 0, 0
-    elif mapped_input == "not_the_person":
-        conversation_state['last_prompt'] = "not_the_person"
-        return PROMPTS["not_the_person"], 1, 0
     elif mapped_input == "not_sure":
         conversation_state['step'] = "offer_transfer"
         conversation_state['last_prompt'] = "not_sure"
