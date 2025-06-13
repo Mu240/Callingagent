@@ -345,7 +345,7 @@ def process_user_input(user_input, session_uuid, phone_number):
     elif mapped_input == "not_sure":
         conversation_state['step'] = "offer_transfer"
         conversation_state['last_prompt'] = "not_sure"
-        return PROMPTS["not_sure"], 0, 0
+        return PROMPTS["not_sure"], 0, 1
     elif mapped_input == "this_is_business":
         conversation_state['last_prompt'] = "this_is_business"
         return PROMPTS["this_is_business"], 0, 0
