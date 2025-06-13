@@ -149,7 +149,7 @@ def get_conversation_state(session_uuid):
             "repeat_count": 0,
             "last_prompt": "greeting",
             "last_input": None,
-            "specific_repeat_count": {"who are you": 0, "what did you say": 0, "something_different": 0, "not_the_person": 0},
+            "specific_repeat_count": {"who_are_you": 0, "what_did_you_say": 0, "something_different": 0, "not_the_person": 0},
             "input_counts": {}
         }
         logger.info(
@@ -162,7 +162,7 @@ def reset_conversation_state(session_uuid):
         "repeat_count": 0,
         "last_prompt": "greeting",
         "last_input": None,
-        "specific_repeat_count": {"who are you": 0, "what did you say": 0, "something_different": 0, "not_the_person": 0},
+        "specific_repeat_count": {"who_are_you": 0, "what_did_you_say": 0, "something_different": 0, "not_the_person": 0},
         "input_counts": {}
     }
     logger.info(f"Reset conversation state for uuid={session_uuid}")
@@ -196,8 +196,6 @@ input_mappings = {
 # List of common words to remove (updated to exclude problematic words)
 STOP_WORDS = {}
 
-# Removed: "are", "you", "a", "the", "i", "am", "and" to preserve phrase integrity
-
 # Prompts for responses
 PROMPTS = {
     "greeting": "Hi, my name is Michele with Tax Group. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
@@ -210,6 +208,7 @@ PROMPTS = {
     "on_disability": "We can help you. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "social": "We can help you. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "not_sure": "If you'd like to check, I can transfer you to a live agent now. Would you like to see if you have any unresolved tax issues?",
+    "not_sure_tax_type": "Please wait and the next available live agent will answer the call.",
     "this_is_business": "Certainly, and sorry for the call. But before I go, do you personally have any missed tax filings or owe more than five thousand dollars in federal taxes?",
     "what_is_this_about": "We help people with federal tax debts or past unfiled taxes.",
     "are_you_computer": "I am an AI Virtual Assistant. Do you personally have any missed tax filings or owe more than five thousand dollars in federal taxes?",
@@ -343,9 +342,14 @@ def process_user_input(user_input, session_uuid, phone_number):
         conversation_state['last_prompt'] = "social"
         return PROMPTS["social"], 0, 0
     elif mapped_input == "not_sure":
-        conversation_state['step'] = "offer_transfer"
-        conversation_state['last_prompt'] = "not_sure"
-        return PROMPTS["not_sure"], 0, 1
+        if conversation_state['step'] == "tax_type":
+            conversation_state['last_prompt'] = "not_sure_tax_type"
+            logger.info(f"Triggering transfer for uuid={session_uuid} due to 'not_sure' in tax_type step")
+            return PROMPTS["not_sure_tax_type"], 0, 1
+        else:
+            conversation_state['step'] = "offer_transfer"
+            conversation_state['last_prompt'] = "not_sure"
+            return PROMPTS["not_sure"], 0, 0
     elif mapped_input == "this_is_business":
         conversation_state['last_prompt'] = "this_is_business"
         return PROMPTS["this_is_business"], 0, 0
@@ -448,8 +452,8 @@ def process_user_input(user_input, session_uuid, phone_number):
     elif conversation_state['step'] == "confirm_state":
         if mapped_input == "yes":
             reset_conversation_state(session_uuid)
-            conversation_state['last_prompt'] = "yes"
-            return PROMPTS["yes"], 1, 0
+            conversation_state['last_prompt'] = "end_call"
+            return PROMPTS["end_call"], 1, 0
         elif mapped_input == "no" or mapped_input == "federal" or mapped_input == "both":
             conversation_state['last_prompt'] = "federal"
             logger.info(f"Triggering transfer for uuid={session_uuid}")
