@@ -377,7 +377,7 @@ def process_user_input(user_input, session_uuid, phone_number):
             conversation_state['step'] = "tax_type"
             conversation_state['last_prompt'] = "yes"
             logger.info(f"Transitioned to step 'tax_type' for uuid={session_uuid}")
-            return PROMPTS["yes"], 0, 0
+            return PROMPTS["yes"], 0, 1
         elif mapped_input == "no":
             conversation_state['step'] = "confirm_no"
             conversation_state['last_prompt'] = "no"
@@ -391,7 +391,7 @@ def process_user_input(user_input, session_uuid, phone_number):
             conversation_state['step'] = "tax_type"
             conversation_state['last_prompt'] = "yes"
             logger.info(f"Transitioned to step 'tax_type' for uuid={session_uuid}")
-            return PROMPTS["yes"], 0, 0
+            return PROMPTS["yes"], 0, 1
         elif mapped_input == "no":
             reset_conversation_state(session_uuid)
             conversation_state['last_prompt'] = "end_call"
@@ -430,7 +430,7 @@ def process_user_input(user_input, session_uuid, phone_number):
             conversation_state['step'] = "tax_type"
             conversation_state['last_prompt'] = "yes"
             logger.info(f"Transitioned to step 'tax_type' for uuid={session_uuid}")
-            return PROMPTS["yes"], 0, 0
+            return PROMPTS["yes"], 0, 1
         elif mapped_input == "":
             conversation_state['repeat_count'] += 1
             if conversation_state['repeat_count'] >= 2:
