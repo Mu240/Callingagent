@@ -198,7 +198,7 @@ STOP_WORDS = {}
 
 # Prompts for responses
 PROMPTS = {
-    "greeting": "Hi, my name is Michele with Tax Group. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
+    "greeting": "Hi, my name is Michele with Tax Group. Do you have a Federal tax debt of five thousand dollars or unfiled tax returns? Please answer yes or know or I don’t know",
     "who_are_you": "Hi, my name is Michele with Tax Group. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "what_did_you_say": "Hi, my name is Michele with Tax Group. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "end_call": "Thank you for your time, unfortunately we are not able to help you at this time.",
@@ -207,20 +207,20 @@ PROMPTS = {
     "how_did_u_get_number": "Not sure, but do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "on_disability": "We can help you. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "social": "We can help you. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
-    "not_sure": "If you'd like to check, I can transfer you to a live agent now. Would you like to see if you have any unresolved tax issues?",
+    "not_sure": "If you’d like to check, I can transfer you to a live agent now. Would you like to see if you have any unresolved federal tax issues? please answer yes or no only.",
     "not_sure_tax_type": "Please wait and the next available live agent will answer the call.",
     "this_is_business": "Certainly, and sorry for the call. But before I go, do you personally have any missed tax filings or owe more than five thousand dollars in federal taxes?",
     "what_is_this_about": "We help people with federal tax debts or past unfiled taxes.",
     "are_you_computer": "I am an AI Virtual Assistant. Do you personally have any missed tax filings or owe more than five thousand dollars in federal taxes?",
     "do_not_call": "I would be happy to do that, but before I go, do you personally have any missed tax filings or owe more than five thousand dollars in federal taxes?",
     "not_a_problem": "Not a problem I will put you on our Do Not call list  but before I go do you personally have any missed tax filings or owe more than Five Thousand dollars in federal taxes?",
-    "something_different": "I am sorry, I don’t understand what you said, but my name is Michele with Tax Group. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
-    "yes": "Ok, let me transfer you to a live agent. Is your tax debt federal or state?",
+    "something_different": "I am sorry I did not understand, Do you personally have any Federal tax filing you have missed or do you owe more than five thousand dollars in federal taxes?  Please answer yes, no or I don’t know only.",
+    "yes": "Ok let me transfer you to a live agent.",
     "state": "We can only help you if a federal tax debt or unfiled back tax returns. Thank you for your time. Before I go, are you sure it is a state tax debt, not a federal tax debt?",
     "federal": "Please wait and the next available live agent will answer the call.",
     "both": "Please wait and the next available live agent will answer the call.",
-    "no": "We can only help you if the tax debt is federal, but thank you for your time. Before I go, are you sure you don’t have a federal tax debt or unfiled tax returns?",
-    "something_else": "I am sorry I did not understand. Let me repeat, do you personally have any tax filings you missed or do you owe more than five thousand dollars in federal taxes?"
+    "no": "We can only help you if a Federal tax debt or unfiled back tax returns.  Thank you for your time.  Before I go, Let me ask you one more time do you owe the federal governmnent more than five thousand in back taxes or have any unfiled back taxes?  Please answer yes, no or I dont know.",
+    "something_else": "I am sorry I did not understand, Do you personally have any Federal tax filing you have missed or do you owe more than five thousand dollars in federal taxes?  Please answer yes, no or I don’t know only."
 }
 
 # Mapping of response texts to audio filenames
