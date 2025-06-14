@@ -205,7 +205,6 @@ PROMPTS = {
     "on_disability": "We can help you. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "social": "We can help you. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "not_sure": "If you’d like to check, I can transfer you to a live agent now. Would you like to see if you have any unresolved tax issues? please answer yes or no only.",
-
     "this_is_business": "Certainly, and sorry for the call. But before I go, do you personally have any missed tax filings or owe more than five thousand dollars in taxes?",
     "what_is_this_about": "We help people with tax debts or past unfiled taxes.",
     "are_you_computer": "I am an AI Virtual Assistant. Do you personally have any missed tax filings or owe more than five thousand dollars in taxes?",
@@ -270,6 +269,7 @@ def map_user_input(user_input_lower):
                 return key
 
     return "something_else"
+
 # Process user input with interrupt logic for input_mappings
 def process_user_input(user_input, session_uuid, phone_number):
     if not user_input or not session_uuid or not phone_number:
@@ -386,14 +386,14 @@ def process_user_input(user_input, session_uuid, phone_number):
 
     elif conversation_state['step'] == "confirm_no":
         if mapped_input == "yes":
-            reset_conversation_state(session_uuid)
-            conversation_state['last_prompt'] = "end_call"
-            return PROMPTS["end_call"], 1, 0
-        elif mapped_input == "no":
             conversation_state['step'] = "tax_type"
             conversation_state['last_prompt'] = "yes"
             logger.info(f"Transitioned to step 'tax_type' for uuid={session_uuid}")
             return PROMPTS["yes"], 0, 1
+        elif mapped_input == "no":
+            reset_conversation_state(session_uuid)
+            conversation_state['last_prompt'] = "end_call"
+            return PROMPTS["end_call"], 1, 0
         elif mapped_input == "":
             conversation_state['repeat_count'] += 1
             if conversation_state['repeat_count'] >= 2:
