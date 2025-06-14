@@ -205,7 +205,7 @@ PROMPTS = {
     "on_disability": "We can help you. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "social": "We can help you. Do you have a tax debt of five thousand dollars or unfiled tax returns?",
     "not_sure": "If you’d like to check, I can transfer you to a live agent now. Would you like to see if you have any unresolved tax issues? please answer yes or no only.",
-    "not_sure_tax_type": "Please wait and the next available live agent will answer the call.",
+
     "this_is_business": "Certainly, and sorry for the call. But before I go, do you personally have any missed tax filings or owe more than five thousand dollars in taxes?",
     "what_is_this_about": "We help people with tax debts or past unfiled taxes.",
     "are_you_computer": "I am an AI Virtual Assistant. Do you personally have any missed tax filings or owe more than five thousand dollars in taxes?",
@@ -240,7 +240,9 @@ def text_to_speech(text):
 
 # Map user input to a key
 def map_user_input(user_input_lower):
-    words = user_input_lower.split()
+    # Remove underscores from the input
+    cleaned_input = user_input_lower.replace('_', ' ')
+    words = cleaned_input.split()
     filtered_words = [word for word in words if word not in STOP_WORDS]
 
     if not filtered_words:
@@ -251,7 +253,7 @@ def map_user_input(user_input_lower):
     # Check for exact phrase matches first
     for key, phrases in input_mappings.items():
         for phrase in phrases:
-            if user_input_lower == phrase:  # Exact match before filtering
+            if cleaned_input == phrase:  # Exact match after underscore removal
                 return key
 
     # Check for filtered input matches
@@ -268,7 +270,6 @@ def map_user_input(user_input_lower):
                 return key
 
     return "something_else"
-
 # Process user input with interrupt logic for input_mappings
 def process_user_input(user_input, session_uuid, phone_number):
     if not user_input or not session_uuid or not phone_number:
@@ -323,14 +324,8 @@ def process_user_input(user_input, session_uuid, phone_number):
         conversation_state['last_prompt'] = "social"
         return PROMPTS["social"], 0, 0
     elif mapped_input == "not_sure":
-        if conversation_state['step'] == "tax_type":
-            conversation_state['last_prompt'] = "not_sure_tax_type"
-            logger.info(f"Triggering transfer for uuid={session_uuid} due to 'not_sure' in tax_type step")
-            return PROMPTS["not_sure_tax_type"], 0, 1
-        else:
-            conversation_state['step'] = "offer_transfer"
-            conversation_state['last_prompt'] = "not_sure"
-            return PROMPTS["not_sure"], 0, 0
+        conversation_state['last_prompt'] = "not_sure"
+        return PROMPTS["not_sure"], 0, 0
     elif mapped_input == "this_is_business":
         conversation_state['last_prompt'] = "this_is_business"
         return PROMPTS["this_is_business"], 0, 0
