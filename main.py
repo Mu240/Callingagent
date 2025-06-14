@@ -279,13 +279,6 @@ def map_user_input(user_input_lower):
             if filtered_phrase and filtered_phrase in filtered_input:
                 return key
 
-    for word in filtered_words:
-        for key, phrases in input_mappings.items():
-            for phrase in phrases:
-                phrase_words = phrase.split()
-                if word in phrase_words:
-                    return key
-
     return "something_else"
 
 # Process user input with interrupt logic for input_mappings
